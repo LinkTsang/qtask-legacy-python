@@ -1,49 +1,14 @@
 import asyncio
-import datetime
 import logging
 import os
 import uuid
 from asyncio.subprocess import Process
 from os.path import join as pjoin
-from typing import Literal, Optional, TypedDict
 
 from config import QTASK_LOG_FILE_NAME
+from model import TaskInfo
 
 logger = logging.getLogger(__name__)
-
-TaskStatus = Literal[
-    "RUNNING",
-    "READY",
-    "PENDING",
-    "PAUSED",
-    "CANCELED",
-    "TERMINATED",
-    "ERROR",
-]
-
-
-class ProcessInfo(TypedDict):
-    current: int
-    total: int
-
-
-class TaskInfo(TypedDict):
-    id: str
-
-    status: TaskStatus
-    process: Optional[ProcessInfo]
-
-    createdAt: datetime.datetime
-    startedAt: Optional[datetime.datetime]
-    pausedAt: Optional[datetime.datetime]
-    terminatedAt: Optional[datetime.datetime]
-
-    name: str
-    description: str
-
-    workingDir: str
-    commandLine: str
-    outputFilePath: str
 
 
 class TaskScheduler:
@@ -68,7 +33,7 @@ class TaskScheduler:
             format='%(asctime)-15s %(levelname)s %(name)s %(message)s')
 
     def add_task(self, task: TaskInfo):
-        task['id'] = str(uuid.uuid4())
+        task.id = str(uuid.uuid4())
         self._pending_task_list.append(task)
         self._event_add_pending_task.set()
 
@@ -168,10 +133,10 @@ class TaskScheduler:
         waiting_events.add(asyncio.create_task(self._wait_event_exit()))
 
     async def _run_task(self, task: TaskInfo):
-        cmd = task['commandLine']
-        output_dir = pjoin(self.log_dir, task['id'])
+        cmd = task.commandLine
+        output_dir = pjoin(self.log_dir, task.id)
         os.makedirs(output_dir, exist_ok=True)
-        output_file_path = pjoin(output_dir, task['outputFilePath'])
+        output_file_path = pjoin(output_dir, task.outputFilePath)
 
         with open(output_file_path, 'w') as output_file:
             proc = await asyncio.create_subprocess_shell(
@@ -184,7 +149,7 @@ class TaskScheduler:
         self._raise_task_done(task, proc)
 
     def _raise_task_done(self, task: TaskInfo, proc: Process):
-        id_ = task['id']
-        name = task['name']
+        id_ = task.id
+        name = task.name
 
         logger.info('task %r@%s exited with %d', name, id_, proc.returncode)

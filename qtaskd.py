@@ -1,22 +1,24 @@
-from typing import List
-from TaskScheduler import TaskInfo, TaskScheduler
 import asyncio
+from typing import List
+
+from TaskScheduler import TaskScheduler
+from model import TaskInfo
 
 
 async def demo():
     tasks: List[TaskInfo] = [
-        {
-            "name": "task 1",
-            "workingDir": ".",
-            "commandLine": "python -m demo.task1",
-            "outputFilePath": "task1.output.log"
-        },
-        {
-            "name": "task 2",
-            "workingDir": ".",
-            "commandLine": "python -m demo.task2",
-            "outputFilePath": "task2.output.log"
-        },
+        TaskInfo(
+            name="task 1",
+            workingDir=".",
+            commandLine="python -m demo.task1",
+            outputFilePath="task1.output.log"
+        ),
+        TaskInfo(
+            name="task 2",
+            workingDir=".",
+            commandLine="python -m demo.task2",
+            outputFilePath="task2.output.log"
+        ),
     ]
 
     print('running task scheduler...')
@@ -30,6 +32,7 @@ async def demo():
     await main_task
 
     print('task scheduler exited.')
+
 
 if __name__ == "__main__":
     asyncio.run(demo())
