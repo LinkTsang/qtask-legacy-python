@@ -5,7 +5,6 @@ import uuid
 from asyncio.subprocess import Process
 from os.path import join as pjoin
 
-from config import QTASK_LOG_FILE_NAME
 from model import TaskInfo
 
 logger = logging.getLogger(__name__)
@@ -27,10 +26,6 @@ class TaskScheduler:
         self._terminated_task_list = []
 
         os.makedirs(self.log_dir, exist_ok=True)
-        logging.basicConfig(
-            filename=pjoin(self.log_dir, QTASK_LOG_FILE_NAME),
-            level=logging.DEBUG,
-            format='%(asctime)-15s %(levelname)s %(name)s %(message)s')
 
     def add_task(self, task: TaskInfo):
         task.id = str(uuid.uuid4())

@@ -3,6 +3,7 @@ from typing import List
 
 from TaskScheduler import TaskScheduler
 from model import TaskInfo
+from utils import setup_logger
 
 
 async def demo():
@@ -35,4 +36,5 @@ async def demo():
 
 
 if __name__ == "__main__":
+    setup_logger()
     asyncio.run(demo())
