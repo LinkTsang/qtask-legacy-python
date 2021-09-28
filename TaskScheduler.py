@@ -14,11 +14,13 @@ class TaskScheduler:
     def __init__(self, log_dir: str = './logs'):
         self.log_dir = log_dir
 
+        self.asyncio_initialized = False
+
         self._waiting_events = set()
 
-        self._event_add_pending_task = asyncio.Event()
-        self._event_task_ready = asyncio.Event()
-        self._event_exit = asyncio.Event()
+        self._event_add_pending_task = None
+        self._event_task_ready = None
+        self._event_exit = None
 
         self._running_tasks = set()
         self._ready_task_list = []
@@ -26,6 +28,13 @@ class TaskScheduler:
         self._terminated_task_list = []
 
         os.makedirs(self.log_dir, exist_ok=True)
+
+    def init_asyncio(self):
+        self._event_add_pending_task = asyncio.Event()
+        self._event_task_ready = asyncio.Event()
+        self._event_exit = asyncio.Event()
+
+        self.asyncio_initialized = True
 
     def add_task(self, task: TaskInfo):
         task.id = str(uuid.uuid4())
@@ -48,6 +57,10 @@ class TaskScheduler:
         raise NotImplementedError
 
     async def run(self):
+        if not self.asyncio_initialized:
+            logging.error('asyncio is not initialize')
+            raise RuntimeError('asyncio is not initialize')
+
         logger.info('start')
 
         waiting_events = self._waiting_events
