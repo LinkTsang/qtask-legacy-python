@@ -7,6 +7,8 @@ from asyncio.subprocess import Process
 from os.path import join as pjoin
 from typing import Literal, Optional, TypedDict
 
+from config import QTASK_LOG_FILE_NAME
+
 logger = logging.getLogger(__name__)
 
 TaskStatus = Literal[
@@ -59,8 +61,11 @@ class TaskScheduler:
         self._pending_task_list = []
         self._terminated_task_list = []
 
-        logging.basicConfig(level=logging.DEBUG,
-                            format='%(asctime)-15s %(levelname)s %(name)s %(message)s')
+        os.makedirs(self.log_dir, exist_ok=True)
+        logging.basicConfig(
+            filename=pjoin(self.log_dir, QTASK_LOG_FILE_NAME),
+            level=logging.DEBUG,
+            format='%(asctime)-15s %(levelname)s %(name)s %(message)s')
 
     def add_task(self, task: TaskInfo):
         task['id'] = str(uuid.uuid4())
