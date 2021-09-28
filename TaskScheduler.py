@@ -79,6 +79,10 @@ class TaskScheduler:
             else:
                 logger.debug('no running tasks')
 
+            if len(futures) == 0:
+                logger.debug('no futures, exit looping')
+                break
+
             done, pending = await asyncio.wait(
                 futures,
                 return_when=asyncio.FIRST_COMPLETED)
