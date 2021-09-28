@@ -4,6 +4,7 @@ import os
 import uuid
 from asyncio.subprocess import Process
 from os.path import join as pjoin
+from typing import Set
 
 from model import TaskInfo
 
@@ -22,7 +23,7 @@ class TaskScheduler:
         self._event_task_ready = None
         self._event_exit = None
 
-        self._running_tasks = set()
+        self._running_tasks: Set[asyncio.Task] = set()
         self._ready_task_list = []
         self._pending_task_list = []
         self._terminated_task_list = []
@@ -40,6 +41,16 @@ class TaskScheduler:
         task.id = str(uuid.uuid4())
         self._pending_task_list.append(task)
         self._event_add_pending_task.set()
+
+    def get_status(self):
+        asyncio_tasks = [{
+            'name': t.get_name(),
+            'done': t.done(),
+        } for t in self._running_tasks]
+
+        return {
+            'asyncio_tasks': asyncio_tasks
+        }
 
     def remove_task(self, task_id: str):
         raise NotImplementedError
