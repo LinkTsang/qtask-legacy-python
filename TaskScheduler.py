@@ -88,6 +88,8 @@ class TaskScheduler:
         raise NotImplementedError
 
     async def run(self):
+        logger.info('start')
+
         waiting_events = self._waiting_events
 
         waiting_events.add(asyncio.create_task(self._wait_event_task_add()))
@@ -100,26 +102,30 @@ class TaskScheduler:
             futures = waiting_events | running_tasks
 
             if running_tasks:
-                logger.debug(f'[RUNNING TASKS] {running_tasks}')
+                logger.debug('running tasks %s', running_tasks)
             else:
-                logger.debug(f'[NOT RUNNING TASKS]')
+                logger.debug('no running tasks')
 
             done, pending = await asyncio.wait(
                 futures,
                 return_when=asyncio.FIRST_COMPLETED)
+
+            logger.debug('asyncio done set %s', done)
+            logger.debug('asyncio pending set %s', pending)
 
             for t in done:
                 if t in waiting_events:
                     waiting_events.remove(t)
 
                 if t in running_tasks:
-                    logger.debug(t)
                     if t.exception():
                         logger.info(t.exception())
                     running_tasks.remove(t)
 
-            logger.debug(f'[ASYNC DONE SET] {done}')
-            logger.debug(f'[ASYNC PENDING SET] {pending}')
+            if self._event_exit.is_set():
+                break
+
+        logger.info('exit')
 
     def exit(self):
         self._event_exit.set()
@@ -181,4 +187,4 @@ class TaskScheduler:
         id_ = task['id']
         name = task['name']
 
-        logger.info(f'[Task [{name!r}]@{id_} exited with {proc.returncode}]')
+        logger.info('task %r@%s exited with %d', name, id_, proc.returncode)
