@@ -6,8 +6,8 @@ from model import TaskInfo
 from utils import setup_logger
 
 
-async def demo():
-    tasks: List[TaskInfo] = [
+async def main(scheduler: TaskScheduler):
+    demo_tasks: List[TaskInfo] = [
         TaskInfo(
             name="task 1",
             workingDir=".",
@@ -24,17 +24,17 @@ async def demo():
 
     print('running task scheduler...')
 
-    scheduler = TaskScheduler('./logs')
-    main_task = asyncio.create_task(scheduler.run())
+    scheduler.init_asyncio()
+    scheduler_task = asyncio.create_task(scheduler.run())
 
-    for t in tasks:
+    for t in demo_tasks:
         scheduler.add_task(t)
 
-    await main_task
+    await scheduler_task
 
     print('task scheduler exited.')
 
 
 if __name__ == "__main__":
     setup_logger()
-    asyncio.run(demo())
+    asyncio.run(main(TaskScheduler('./logs')))
