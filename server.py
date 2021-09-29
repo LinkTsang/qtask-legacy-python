@@ -27,7 +27,7 @@ def read_root():
 
 @app.get("/status")
 def get_status():
-    return str(scheduler.get_status())
+    return scheduler.get_status()
 
 
 @app.get("/tasks/{task_id}")
