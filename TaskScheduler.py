@@ -4,6 +4,7 @@ import os
 import uuid
 from asyncio.subprocess import Process
 from collections import deque
+from datetime import datetime
 from os.path import join as pjoin
 from typing import Set, Dict, Deque, List
 
@@ -172,6 +173,7 @@ class TaskScheduler:
         os.makedirs(output_dir, exist_ok=True)
         output_file_path = pjoin(output_dir, task.output_file_path)
 
+        task.started_at = datetime.now()
         self._running_task_ids.add(task_id)
 
         with open(output_file_path, 'w') as output_file:
@@ -183,7 +185,7 @@ class TaskScheduler:
             _ = await proc.wait()
 
         self._running_task_ids.remove(task_id)
-
+        task.terminated_at = datetime.now()
         self._terminated_task_ids.append(task_id)
 
         self._raise_task_done(task, proc)
