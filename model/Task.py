@@ -1,8 +1,10 @@
 import datetime
-from typing import Optional, Literal
+from typing import Optional, Literal, TypeVar
 
 from pydantic import BaseModel
 from pydantic.utils import to_camel
+
+TaskId = TypeVar('TaskId', bound=str)
 
 TaskStatus = Literal[
     "RUNNING",
@@ -25,7 +27,7 @@ class ProcessInfo(BaseModel):
 
 
 class TaskInfo(BaseModel):
-    id: str = ""
+    id: TaskId = ""
 
     status: TaskStatus = "PENDING"
     process: Optional[ProcessInfo]

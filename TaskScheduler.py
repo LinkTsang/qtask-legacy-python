@@ -55,19 +55,19 @@ class TaskScheduler:
             'asyncio_tasks': asyncio_tasks
         }
 
-    def remove_task(self, task_id: str):
+    def remove_task(self, task_id: TaskId):
         raise NotImplementedError
 
-    def try_pause_task(self, task_id: str):
+    def try_pause_task(self, task_id: TaskId):
         raise NotImplementedError
 
-    def try_resume_task(self, task_id: str):
+    def try_resume_task(self, task_id: TaskId):
         raise NotImplementedError
 
-    def try_cancel_task(self, task_id: str):
+    def try_cancel_task(self, task_id: TaskId):
         raise NotImplementedError
 
-    def kill_task(self, task_id: str):
+    def kill_task(self, task_id: TaskId):
         raise NotImplementedError
 
     async def run(self):
