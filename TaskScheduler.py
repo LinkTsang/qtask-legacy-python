@@ -159,10 +159,10 @@ class TaskScheduler:
         waiting_events.add(asyncio.create_task(self._wait_event_exit()))
 
     async def _run_task(self, task: TaskInfo):
-        cmd = task.commandLine
+        cmd = task.command_line
         output_dir = pjoin(self.task_output_dir, task.id)
         os.makedirs(output_dir, exist_ok=True)
-        output_file_path = pjoin(output_dir, task.outputFilePath)
+        output_file_path = pjoin(output_dir, task.output_file_path)
 
         with open(output_file_path, 'w') as output_file:
             proc = await asyncio.create_subprocess_shell(

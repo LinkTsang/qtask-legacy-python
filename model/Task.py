@@ -2,6 +2,7 @@ import datetime
 from typing import Optional, Literal
 
 from pydantic import BaseModel
+from pydantic.utils import to_camel
 
 TaskStatus = Literal[
     "RUNNING",
@@ -18,6 +19,10 @@ class ProcessInfo(BaseModel):
     current: int
     total: int
 
+    class Config:
+        alias_generator = to_camel
+        allow_population_by_field_name = True
+
 
 class TaskInfo(BaseModel):
     id: str = ""
@@ -25,14 +30,18 @@ class TaskInfo(BaseModel):
     status: TaskStatus = "PENDING"
     process: Optional[ProcessInfo]
 
-    createdAt: datetime.datetime = datetime.datetime.now()
-    startedAt: Optional[datetime.datetime]
-    pausedAt: Optional[datetime.datetime]
-    terminatedAt: Optional[datetime.datetime]
+    created_at: datetime.datetime = datetime.datetime.now()
+    started_at: Optional[datetime.datetime]
+    paused_at: Optional[datetime.datetime]
+    terminated_at: Optional[datetime.datetime]
 
     name: str
     description: str = ""
 
-    workingDir: str = ""
-    commandLine: str
-    outputFilePath: str = "task.log"
+    working_dir: str = ""
+    command_line: str
+    output_file_path: str = "task.log"
+
+    class Config:
+        alias_generator = to_camel
+        allow_population_by_field_name = True
