@@ -10,15 +10,15 @@ async def main(scheduler: TaskScheduler):
     demo_tasks: List[TaskInfo] = [
         TaskInfo(
             name="task 1",
-            workingDir=".",
-            commandLine="python -m demo.task1",
-            outputFilePath="task1.output.log"
+            working_dir=".",
+            command_line="python -m demo.task1",
+            output_file_path="task1.output.log"
         ),
         TaskInfo(
             name="task 2",
-            workingDir=".",
-            commandLine="python -m demo.task2",
-            outputFilePath="task2.output.log"
+            working_dir=".",
+            command_line="python -m demo.task2",
+            output_file_path="task2.output.log"
         ),
     ]
 
