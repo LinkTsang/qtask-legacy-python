@@ -23,7 +23,8 @@ class TaskScheduler:
         self._event_task_ready = None
         self._event_exit = None
 
-        self._running_tasks: Set[asyncio.Task] = set()
+        self._asyncio_tasks: Set[asyncio.Task] = set()
+
         self._ready_task_list = []
         self._pending_task_list = []
         self._terminated_task_list = []
@@ -46,7 +47,7 @@ class TaskScheduler:
         asyncio_tasks = [{
             'name': t.get_name(),
             'done': t.done(),
-        } for t in self._running_tasks]
+        } for t in self._asyncio_tasks]
 
         return {
             'asyncio_tasks': asyncio_tasks
@@ -82,11 +83,11 @@ class TaskScheduler:
         waiting_events.add(asyncio.create_task(self._wait_event_exit()))
 
         while True:
-            running_tasks = self._running_tasks
-            futures = waiting_events | running_tasks
+            asyncio_tasks = self._asyncio_tasks
+            futures = waiting_events | asyncio_tasks
 
-            if running_tasks:
-                logger.debug('running tasks %s', running_tasks)
+            if asyncio_tasks:
+                logger.debug('running tasks %s', asyncio_tasks)
             else:
                 logger.debug('no running tasks')
 
@@ -105,10 +106,10 @@ class TaskScheduler:
                 if t in waiting_events:
                     waiting_events.remove(t)
 
-                if t in running_tasks:
+                if t in asyncio_tasks:
                     if t.exception():
                         logger.info(t.exception())
-                    running_tasks.remove(t)
+                    asyncio_tasks.remove(t)
 
             if self._event_exit.is_set():
                 break
@@ -142,7 +143,7 @@ class TaskScheduler:
 
         while self._ready_task_list:
             ready_task = self._ready_task_list.pop()
-            self._running_tasks.add(asyncio.create_task(self._run_task(ready_task)))
+            self._asyncio_tasks.add(asyncio.create_task(self._run_task(ready_task)))
 
         self._waiting_events.add(
             asyncio.create_task(self._wait_event_task_ready()))
