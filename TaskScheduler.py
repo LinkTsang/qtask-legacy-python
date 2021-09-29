@@ -3,10 +3,11 @@ import logging
 import os
 import uuid
 from asyncio.subprocess import Process
+from collections import deque
 from os.path import join as pjoin
-from typing import Set
+from typing import Set, Dict, Deque, List
 
-from model import TaskInfo
+from model import TaskInfo, TaskId
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +25,14 @@ class TaskScheduler:
         self._event_task_ready = None
         self._event_exit = None
 
+        self.tasks: Dict[TaskId, TaskInfo] = {}
+
         self._asyncio_tasks: Set[asyncio.Future] = set()
 
-        self._ready_task_list = []
-        self._pending_task_list = []
-        self._terminated_task_list = []
+        self._running_task_ids: Set[TaskId] = set()
+        self._ready_task_ids: Deque[TaskId] = deque()
+        self._pending_task_ids: Deque[TaskId] = deque()
+        self._terminated_task_ids: List[TaskId] = []
 
         os.makedirs(self.log_dir, exist_ok=True)
         os.makedirs(self.task_output_dir, exist_ok=True)
@@ -42,17 +46,20 @@ class TaskScheduler:
 
     def add_task(self, task: TaskInfo):
         task.id = str(uuid.uuid4())
-        self._pending_task_list.append(task)
+        self.tasks[task.id] = task
+        self._pending_task_ids.append(task.id)
         self._event_add_pending_task.set()
 
     def get_status(self):
-        asyncio_tasks = [{
-            'name': t.get_name(),
-            'done': t.done(),
-        } for t in self._asyncio_tasks]
+        tasks = self.tasks
+        running_tasks = [tasks[i] for i in self._running_task_ids]
+        pending_tasks = [tasks[i] for i in self._pending_task_ids]
+        terminated_tasks = [tasks[i] for i in self._terminated_task_ids]
 
         return {
-            'asyncio_tasks': asyncio_tasks
+            'running_tasks': running_tasks,
+            'pending_tasks': pending_tasks,
+            'terminated_tasks': terminated_tasks,
         }
 
     def remove_task(self, task_id: TaskId):
@@ -127,11 +134,11 @@ class TaskScheduler:
 
         logger.debug('_wait_event_add_task set')
 
-        while self._pending_task_list:
-            task = self._pending_task_list.pop()
-            self._ready_task_list.append(task)
+        while self._pending_task_ids:
+            task = self._pending_task_ids.popleft()
+            self._ready_task_ids.append(task)
 
-        if self._ready_task_list:
+        if self._ready_task_ids:
             self._event_task_ready.set()
 
         self._waiting_events.add(
@@ -143,9 +150,9 @@ class TaskScheduler:
 
         logger.debug('_event_task_ready set')
 
-        while self._ready_task_list:
-            ready_task = self._ready_task_list.pop()
-            self._asyncio_tasks.add(asyncio.create_task(self._run_task(ready_task)))
+        while self._ready_task_ids:
+            ready_task_id = self._ready_task_ids.popleft()
+            self._asyncio_tasks.add(asyncio.create_task(self._run_task(ready_task_id)))
 
         self._waiting_events.add(
             asyncio.create_task(self._wait_event_task_ready()))
@@ -158,11 +165,14 @@ class TaskScheduler:
         waiting_events = self._waiting_events
         waiting_events.add(asyncio.create_task(self._wait_event_exit()))
 
-    async def _run_task(self, task: TaskInfo):
+    async def _run_task(self, task_id: TaskId):
+        task = self.tasks[task_id]
         cmd = task.command_line
-        output_dir = pjoin(self.task_output_dir, task.id)
+        output_dir = pjoin(self.task_output_dir, task_id)
         os.makedirs(output_dir, exist_ok=True)
         output_file_path = pjoin(output_dir, task.output_file_path)
+
+        self._running_task_ids.add(task_id)
 
         with open(output_file_path, 'w') as output_file:
             proc = await asyncio.create_subprocess_shell(
@@ -171,6 +181,10 @@ class TaskScheduler:
                 stderr=output_file)
 
             _ = await proc.wait()
+
+        self._running_task_ids.remove(task_id)
+
+        self._terminated_task_ids.append(task_id)
 
         self._raise_task_done(task, proc)
 
