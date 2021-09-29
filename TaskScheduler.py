@@ -18,13 +18,13 @@ class TaskScheduler:
 
         self.asyncio_initialized = False
 
-        self._waiting_events = set()
+        self._waiting_events: Set[asyncio.Future] = set()
 
         self._event_add_pending_task = None
         self._event_task_ready = None
         self._event_exit = None
 
-        self._asyncio_tasks: Set[asyncio.Task] = set()
+        self._asyncio_tasks: Set[asyncio.Future] = set()
 
         self._ready_task_list = []
         self._pending_task_list = []
