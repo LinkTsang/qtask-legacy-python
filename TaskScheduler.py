@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 class TaskScheduler:
     def __init__(self, log_dir: str = './logs'):
         self.log_dir = log_dir
+        self.task_output_dir = pjoin(log_dir, 'tasks')
 
         self.asyncio_initialized = False
 
@@ -30,6 +31,7 @@ class TaskScheduler:
         self._terminated_task_list = []
 
         os.makedirs(self.log_dir, exist_ok=True)
+        os.makedirs(self.task_output_dir, exist_ok=True)
 
     def init_asyncio(self):
         self._event_add_pending_task = asyncio.Event()
@@ -158,7 +160,7 @@ class TaskScheduler:
 
     async def _run_task(self, task: TaskInfo):
         cmd = task.commandLine
-        output_dir = pjoin(self.log_dir, task.id)
+        output_dir = pjoin(self.task_output_dir, task.id)
         os.makedirs(output_dir, exist_ok=True)
         output_file_path = pjoin(output_dir, task.outputFilePath)
 
