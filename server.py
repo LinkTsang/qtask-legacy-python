@@ -46,7 +46,7 @@ if os.name == 'nt':
     scheduler_loop = asyncio.ProactorEventLoop()
 else:
     scheduler_loop = asyncio.new_event_loop()
-scheduler_loop_thread = threading.Thread(target=run_scheduler_loop, args=(scheduler_loop,), daemon=True)
+scheduler_loop_thread = threading.Thread(target=run_scheduler_loop, args=(scheduler_loop,), daemon=False)
 scheduler_loop_thread.start()
 
 asyncio.run_coroutine_threadsafe(qtaskd.main(scheduler), scheduler_loop)
