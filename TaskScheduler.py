@@ -7,7 +7,7 @@ from datetime import datetime
 from os.path import join as pjoin
 from typing import Set, Dict, Deque, List
 
-from schemas import TaskInfo, TaskId
+from schemas import TaskInfo, TaskId, TaskStatus
 
 logger = logging.getLogger(__name__)
 
@@ -23,16 +23,14 @@ class TaskScheduler:
 
         self._waiting_events: Set[asyncio.Future] = set()
 
-        self._event_add_pending_task = None
-        self._event_task_ready = None
+        self._event_task_schedule = None
         self._event_exit = None
 
         self.tasks: Dict[TaskId, TaskInfo] = {}
 
         self._asyncio_tasks: Set[asyncio.Future] = set()
 
-        self._running_task_ids: Set[TaskId] = set()
-        self._ready_task_ids: Deque[TaskId] = deque()
+        self._activating_task_ids: Set[TaskId] = set()
         self._pending_task_ids: Deque[TaskId] = deque()
         self._terminated_task_ids: List[TaskId] = []
 
@@ -40,8 +38,7 @@ class TaskScheduler:
         os.makedirs(self.task_output_dir, exist_ok=True)
 
     def init_asyncio(self):
-        self._event_add_pending_task = asyncio.Event()
-        self._event_task_ready = asyncio.Event()
+        self._event_task_schedule = asyncio.Event()
         self._event_exit = asyncio.Event()
 
         self.asyncio_initialized = True
@@ -49,11 +46,11 @@ class TaskScheduler:
     def add_task(self, task: TaskInfo):
         self.tasks[task.id] = task
         self._pending_task_ids.append(task.id)
-        self._event_add_pending_task.set()
+        self._event_task_schedule.set()
 
     def get_status(self):
         tasks = self.tasks
-        running_tasks = [tasks[i] for i in self._running_task_ids]
+        running_tasks = [tasks[i] for i in self._activating_task_ids]
         pending_tasks = [tasks[i] for i in self._pending_task_ids]
         terminated_tasks = [tasks[i] for i in self._terminated_task_ids]
 
@@ -87,8 +84,7 @@ class TaskScheduler:
 
         waiting_events = self._waiting_events
 
-        waiting_events.add(asyncio.create_task(self._wait_event_task_add()))
-        waiting_events.add(asyncio.create_task(self._wait_event_task_ready()))
+        waiting_events.add(asyncio.create_task(self._wait_event_task_schedule()))
 
         waiting_events.add(asyncio.create_task(self._wait_event_exit()))
 
@@ -119,6 +115,7 @@ class TaskScheduler:
                 if t in asyncio_tasks:
                     if t.exception():
                         logger.info(t.exception())
+                    self._event_task_schedule.set()
                     asyncio_tasks.remove(t)
 
             if self._event_exit.is_set():
@@ -129,34 +126,24 @@ class TaskScheduler:
     def exit(self):
         self._event_exit.set()
 
-    async def _wait_event_task_add(self):
-        await self._event_add_pending_task.wait()
-        self._event_add_pending_task.clear()
+    async def _wait_event_task_schedule(self):
+        await self._event_task_schedule.wait()
+        self._event_task_schedule.clear()
 
-        logger.debug('_wait_event_add_task set')
+        logger.debug('_event_task_schedule set')
 
-        while self._pending_task_ids:
-            task = self._pending_task_ids.popleft()
-            self._ready_task_ids.append(task)
+        while self.max_concurrency_tasks > len(self._activating_task_ids) and self._pending_task_ids:
+            ready_task_id = self._pending_task_ids.popleft()
 
-        if self._ready_task_ids:
-            self._event_task_ready.set()
+            task = self.tasks[ready_task_id]
+            task.started_at = datetime.now()
+            task.status = TaskStatus.READY
+            self._activating_task_ids.add(ready_task_id)
 
-        self._waiting_events.add(
-            asyncio.create_task(self._wait_event_task_add()))
-
-    async def _wait_event_task_ready(self):
-        await self._event_task_ready.wait()
-        self._event_task_ready.clear()
-
-        logger.debug('_event_task_ready set')
-
-        while self._ready_task_ids:
-            ready_task_id = self._ready_task_ids.popleft()
             self._asyncio_tasks.add(asyncio.create_task(self._run_task(ready_task_id)))
 
         self._waiting_events.add(
-            asyncio.create_task(self._wait_event_task_ready()))
+            asyncio.create_task(self._wait_event_task_schedule()))
 
     async def _wait_event_exit(self):
         await self._event_exit.wait()
@@ -168,13 +155,23 @@ class TaskScheduler:
 
     async def _run_task(self, task_id: TaskId):
         task = self.tasks[task_id]
+        status = task.status
         cmd = task.command_line
         output_dir = pjoin(self.task_output_dir, task_id)
         os.makedirs(output_dir, exist_ok=True)
         output_file_path = pjoin(output_dir, task.output_file_path)
 
-        task.started_at = datetime.now()
-        self._running_task_ids.add(task_id)
+        if status != TaskStatus.READY:
+            logger.warning('task %r@%s status is not READY', task.name, task_id)
+
+            self._activating_task_ids.remove(task_id)
+            task.status = TaskStatus.ERROR
+            task.terminated_at = datetime.now()
+            self._terminated_task_ids.append(task_id)
+
+            self._raise_task_failed(task)
+
+            return
 
         with open(output_file_path, 'w') as output_file:
             proc = await asyncio.create_subprocess_shell(
@@ -184,7 +181,8 @@ class TaskScheduler:
 
             _ = await proc.wait()
 
-        self._running_task_ids.remove(task_id)
+        self._activating_task_ids.remove(task_id)
+        task.status = TaskStatus.COMPLETED
         task.terminated_at = datetime.now()
         self._terminated_task_ids.append(task_id)
 
@@ -195,3 +193,9 @@ class TaskScheduler:
         name = task.name
 
         logger.info('task %r@%s exited with %d', name, id_, proc.returncode)
+
+    def _raise_task_failed(self, task: TaskInfo):
+        id_ = task.id
+        name = task.name
+
+        logger.error('task %r@%s failed', name, id_)
