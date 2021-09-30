@@ -14,15 +14,15 @@ async def main(scheduler: TaskScheduler):
     try:
         demo_tasks: List[TaskInfo] = [
             TaskInfo(
-                name="task 1",
+                name="6s task",
                 working_dir=".",
-                command_line="python -m demo.task1",
-                output_file_path="task1.output.log"
+                command_line="python -m demo.dummy_task -t 6",
+                output_file_path="task6.output.log"
             ),
             TaskInfo(
-                name="task 2",
+                name="2s task",
                 working_dir=".",
-                command_line="python -m demo.task2",
+                command_line="python -m demo.dummy_task -t 2",
                 output_file_path="task2.output.log"
             ),
         ]
