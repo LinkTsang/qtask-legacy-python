@@ -3,7 +3,7 @@ import logging
 from typing import List
 
 from TaskScheduler import TaskScheduler
-from model import TaskInfo
+from schemas import TaskInfo
 from utils import setup_logger
 
 

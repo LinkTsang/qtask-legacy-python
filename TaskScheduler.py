@@ -7,7 +7,7 @@ from datetime import datetime
 from os.path import join as pjoin
 from typing import Set, Dict, Deque, List
 
-from model import TaskInfo, TaskId
+from schemas import TaskInfo, TaskId
 
 logger = logging.getLogger(__name__)
 
