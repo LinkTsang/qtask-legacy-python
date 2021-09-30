@@ -17,9 +17,9 @@ class TaskStatus(enum.Enum):
     PENDING = "PENDING"
 
     CANCELED = "CANCELED"
+    COMPLETED = "COMPLETED"
     DETACHED = "DETACHED"
     ERROR = "ERROR"
-    TERMINATED = "TERMINATED"
 
 
 class TaskInfo(BaseModel):
