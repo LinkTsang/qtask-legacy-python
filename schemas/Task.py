@@ -1,6 +1,6 @@
-import datetime
 import enum
 import uuid
+from datetime import datetime
 from typing import Optional, TypeVar
 
 from pydantic import BaseModel, Field
@@ -27,10 +27,10 @@ class TaskInfo(BaseModel):
 
     status: TaskStatus = TaskStatus.PENDING
 
-    created_at: datetime.datetime = datetime.datetime.now()
-    started_at: Optional[datetime.datetime]
-    paused_at: Optional[datetime.datetime]
-    terminated_at: Optional[datetime.datetime]
+    created_at: datetime = Field(default_factory=datetime.now)
+    started_at: Optional[datetime]
+    paused_at: Optional[datetime]
+    terminated_at: Optional[datetime]
 
     name: str
     description: str = ""
