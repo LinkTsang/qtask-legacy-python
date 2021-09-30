@@ -13,8 +13,10 @@ logger = logging.getLogger(__name__)
 
 
 class TaskScheduler:
-    def __init__(self, log_dir: str = './logs'):
+    def __init__(self, log_dir: str = './logs', max_concurrency_tasks=1):
         self.log_dir = log_dir
+        self.max_concurrency_tasks = max_concurrency_tasks
+
         self.task_output_dir = pjoin(log_dir, 'tasks')
 
         self.asyncio_initialized = False
