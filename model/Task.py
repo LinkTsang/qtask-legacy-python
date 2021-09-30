@@ -22,20 +22,10 @@ class TaskStatus(enum.Enum):
     TERMINATED = "TERMINATED"
 
 
-class ProcessInfo(BaseModel):
-    current: int
-    total: int
-
-    class Config:
-        alias_generator = to_camel
-        allow_population_by_field_name = True
-
-
 class TaskInfo(BaseModel):
     id: TaskId = Field(default_factory=lambda: str(uuid.uuid4()))
 
     status: TaskStatus = TaskStatus.PENDING
-    process: Optional[ProcessInfo]
 
     created_at: datetime.datetime = datetime.datetime.now()
     started_at: Optional[datetime.datetime]
@@ -52,3 +42,8 @@ class TaskInfo(BaseModel):
     class Config:
         alias_generator = to_camel
         allow_population_by_field_name = True
+
+
+class ActivatingTaskInfo(TaskInfo):
+    process_current: Optional[int]
+    process_total: Optional[int]
