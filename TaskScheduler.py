@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-import uuid
 from asyncio.subprocess import Process
 from collections import deque
 from datetime import datetime
@@ -46,7 +45,6 @@ class TaskScheduler:
         self.asyncio_initialized = True
 
     def add_task(self, task: TaskInfo):
-        task.id = str(uuid.uuid4())
         self.tasks[task.id] = task
         self._pending_task_ids.append(task.id)
         self._event_add_pending_task.set()

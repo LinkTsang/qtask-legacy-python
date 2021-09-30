@@ -1,7 +1,8 @@
 import datetime
+import uuid
 from typing import Optional, Literal, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic.utils import to_camel
 
 TaskId = TypeVar('TaskId', bound=str)
@@ -27,7 +28,7 @@ class ProcessInfo(BaseModel):
 
 
 class TaskInfo(BaseModel):
-    id: TaskId = ""
+    id: TaskId = Field(default_factory=lambda: str(uuid.uuid4()))
 
     status: TaskStatus = "PENDING"
     process: Optional[ProcessInfo]
