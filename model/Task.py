@@ -1,21 +1,25 @@
 import datetime
+import enum
 import uuid
-from typing import Optional, Literal, TypeVar
+from typing import Optional, TypeVar
 
 from pydantic import BaseModel, Field
 from pydantic.utils import to_camel
 
 TaskId = TypeVar('TaskId', bound=str)
 
-TaskStatus = Literal[
-    "RUNNING",
-    "READY",
-    "PENDING",
-    "PAUSED",
-    "CANCELED",
-    "TERMINATED",
-    "ERROR",
-]
+
+class TaskStatus(enum.Enum):
+    READY = "READY"
+    RUNNING = "RUNNING"
+    PAUSED = "PAUSED"
+
+    PENDING = "PENDING"
+
+    CANCELED = "CANCELED"
+    DETACHED = "DETACHED"
+    ERROR = "ERROR"
+    TERMINATED = "TERMINATED"
 
 
 class ProcessInfo(BaseModel):
@@ -30,7 +34,7 @@ class ProcessInfo(BaseModel):
 class TaskInfo(BaseModel):
     id: TaskId = Field(default_factory=lambda: str(uuid.uuid4()))
 
-    status: TaskStatus = "PENDING"
+    status: TaskStatus = TaskStatus.PENDING
     process: Optional[ProcessInfo]
 
     created_at: datetime.datetime = datetime.datetime.now()
