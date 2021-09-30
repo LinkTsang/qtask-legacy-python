@@ -7,6 +7,8 @@ from fastapi import FastAPI
 
 import qtaskd
 from TaskScheduler import TaskScheduler
+from config import QTASK_DATABASE_URL
+from store import StoreDB
 from utils import setup_logger
 
 # setup logger
@@ -17,7 +19,7 @@ logger = logging.getLogger('server')
 app = FastAPI()
 
 # task scheduler
-scheduler = TaskScheduler('./logs')
+scheduler = TaskScheduler(StoreDB(QTASK_DATABASE_URL), './logs')
 
 
 @app.get("/")
