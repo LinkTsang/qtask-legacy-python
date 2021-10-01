@@ -9,7 +9,10 @@ import qtaskd
 from TaskScheduler import TaskScheduler
 from config import QTASK_DATABASE_URL
 from store import StoreDB
-from utils import setup_logger
+from utils import setup_logger, setup_data_dirs
+
+# setup data
+setup_data_dirs()
 
 # setup logger
 setup_logger()

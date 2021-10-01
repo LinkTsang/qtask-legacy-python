@@ -6,7 +6,7 @@ from TaskScheduler import TaskScheduler
 from config import QTASK_DATABASE_URL
 from schemas import TaskInfo
 from store import StoreDB
-from utils import setup_logger
+from utils import setup_logger, setup_data_dirs
 
 
 async def main(scheduler: TaskScheduler):
@@ -44,6 +44,7 @@ async def main(scheduler: TaskScheduler):
 
 
 if __name__ == "__main__":
+    setup_data_dirs()
     setup_logger()
     scheduler = TaskScheduler(StoreDB(QTASK_DATABASE_URL), './logs')
     asyncio.run(main(scheduler))
