@@ -12,7 +12,7 @@ from store import Store
 logger = logging.getLogger(__name__)
 
 
-class TaskScheduler:
+class TaskControlDaemon:
     def __init__(self, store: Store, log_dir: str = './logs', max_concurrency_tasks=1):
         self.store = store
         self.log_dir = log_dir

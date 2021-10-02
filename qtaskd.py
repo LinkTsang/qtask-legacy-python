@@ -2,14 +2,14 @@ import asyncio
 import logging
 from typing import List
 
-from TaskScheduler import TaskScheduler
 from config import QTASK_DATABASE_URL
+from qtask_ctrld import TaskControlDaemon
 from schemas import TaskInfo
 from store import StoreDB
 from utils import setup_logger, setup_data_dirs
 
 
-async def main(scheduler: TaskScheduler):
+async def main(task_control_daemon: TaskControlDaemon):
     logger = logging.getLogger('qtaskd')
     logger.info('running task scheduler...')
 
@@ -29,11 +29,11 @@ async def main(scheduler: TaskScheduler):
             ),
         ]
 
-        scheduler.init_asyncio()
-        scheduler_task = asyncio.create_task(scheduler.run())
+        task_control_daemon.init_asyncio()
+        scheduler_task = asyncio.create_task(task_control_daemon.run())
 
         for t in demo_tasks:
-            scheduler.add_task(t)
+            task_control_daemon.add_task(t)
 
         await scheduler_task
 
@@ -46,5 +46,5 @@ async def main(scheduler: TaskScheduler):
 if __name__ == "__main__":
     setup_data_dirs()
     setup_logger()
-    scheduler = TaskScheduler(StoreDB(QTASK_DATABASE_URL), './logs')
+    scheduler = TaskControlDaemon(StoreDB(QTASK_DATABASE_URL), './logs')
     asyncio.run(main(scheduler))

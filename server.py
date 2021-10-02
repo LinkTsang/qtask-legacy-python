@@ -6,8 +6,8 @@ import threading
 from fastapi import FastAPI
 
 import qtaskd
-from TaskScheduler import TaskScheduler
 from config import QTASK_DATABASE_URL
+from qtask_ctrld import TaskControlDaemon
 from store import StoreDB
 from utils import setup_logger, setup_data_dirs
 
@@ -22,7 +22,7 @@ logger = logging.getLogger('server')
 app = FastAPI()
 
 # task scheduler
-scheduler = TaskScheduler(StoreDB(QTASK_DATABASE_URL), './logs')
+scheduler = TaskControlDaemon(StoreDB(QTASK_DATABASE_URL), './logs')
 
 
 @app.get("/")
