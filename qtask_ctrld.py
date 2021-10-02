@@ -1,12 +1,11 @@
 import asyncio
 import logging
 import os
-from asyncio.subprocess import Process
 from datetime import datetime
-from os.path import join as pjoin
 from typing import Set, List
 
 from config import QTASK_DATABASE_URL
+from qtaskd import TaskDaemon
 from schemas import TaskInfo, TaskId, TaskStatus
 from store import Store, StoreDB
 from utils import setup_logger, setup_data_dirs
@@ -20,8 +19,6 @@ class TaskControlDaemon:
         self.log_dir = log_dir
         self.max_concurrency_tasks = max_concurrency_tasks
 
-        self.task_output_dir = pjoin(log_dir, 'tasks')
-
         self.asyncio_initialized = False
 
         self._waiting_events: Set[asyncio.Future] = set()
@@ -32,7 +29,12 @@ class TaskControlDaemon:
         self._asyncio_tasks: Set[asyncio.Future] = set()
 
         os.makedirs(self.log_dir, exist_ok=True)
-        os.makedirs(self.task_output_dir, exist_ok=True)
+
+        taskd = TaskDaemon()
+        taskd.task_done.on(self._handle_task_done)
+        taskd.task_failed.on(self._handle_task_failed)
+
+        self._taskd = taskd
 
     def init_asyncio(self):
         self._event_task_schedule = asyncio.Event()
@@ -139,7 +141,7 @@ class TaskControlDaemon:
             task.status = TaskStatus.READY
             store.update_task(task)
 
-            self._asyncio_tasks.add(asyncio.create_task(self._run_task(task.id)))
+            self._asyncio_tasks.add(asyncio.create_task(self._run_task(task)))
 
         self._waiting_events.add(
             asyncio.create_task(self._wait_event_task_schedule()))
@@ -161,52 +163,14 @@ class TaskControlDaemon:
         waiting_events = self._waiting_events
         waiting_events.add(asyncio.create_task(self._wait_event_exit()))
 
-    async def _run_task(self, task_id: TaskId):
-        store = self.store
+    async def _run_task(self, task: TaskInfo):
+        await self._taskd.run_task(task)
 
-        task = store.get_task_by_id(task_id)
-        status = task.status
-        cmd = task.command_line
-        output_dir = pjoin(self.task_output_dir, task_id)
-        os.makedirs(output_dir, exist_ok=True)
-        output_file_path = pjoin(output_dir, task.output_file_path)
+    def _handle_task_done(self, task: TaskInfo):
+        self.store.update_task(task)
 
-        if status != TaskStatus.READY:
-            logger.warning('task %r@%s status is not READY', task.name, task_id)
-
-            task.status = TaskStatus.ERROR
-            task.terminated_at = datetime.now()
-            store.update_task(task)
-
-            self._raise_task_failed(task)
-
-            return
-
-        with open(output_file_path, 'w') as output_file:
-            proc = await asyncio.create_subprocess_shell(
-                cmd,
-                stdout=output_file,
-                stderr=output_file)
-
-            _ = await proc.wait()
-
-        task.status = TaskStatus.COMPLETED
-        task.terminated_at = datetime.now()
-        store.update_task(task)
-
-        self._raise_task_done(task, proc)
-
-    def _raise_task_done(self, task: TaskInfo, proc: Process):
-        id_ = task.id
-        name = task.name
-
-        logger.info('task %r@%s exited with %d', name, id_, proc.returncode)
-
-    def _raise_task_failed(self, task: TaskInfo):
-        id_ = task.id
-        name = task.name
-
-        logger.error('task %r@%s failed', name, id_)
+    def _handle_task_failed(self, task: TaskInfo):
+        self.store.update_task(task)
 
 
 async def main(task_control_daemon: TaskControlDaemon):
