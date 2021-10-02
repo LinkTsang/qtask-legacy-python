@@ -210,6 +210,7 @@ class TaskControlDaemon:
 
 
 async def main(task_control_daemon: TaskControlDaemon):
+    print('running task control daemon...')
     logger.info('running task control daemon...')
 
     try:
@@ -240,6 +241,7 @@ async def main(task_control_daemon: TaskControlDaemon):
         logger.exception('task control daemon uncaught exception')
 
     logger.info('task control daemon exited.')
+    print('task control daemon exited.')
 
 
 if __name__ == "__main__":
