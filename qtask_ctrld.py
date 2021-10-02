@@ -4,10 +4,12 @@ import os
 from asyncio.subprocess import Process
 from datetime import datetime
 from os.path import join as pjoin
-from typing import Set
+from typing import Set, List
 
+from config import QTASK_DATABASE_URL
 from schemas import TaskInfo, TaskId, TaskStatus
-from store import Store
+from store import Store, StoreDB
+from utils import setup_logger, setup_data_dirs
 
 logger = logging.getLogger(__name__)
 
@@ -205,3 +207,43 @@ class TaskControlDaemon:
         name = task.name
 
         logger.error('task %r@%s failed', name, id_)
+
+
+async def main(task_control_daemon: TaskControlDaemon):
+    logger.info('running task control daemon...')
+
+    try:
+        demo_tasks: List[TaskInfo] = [
+            TaskInfo(
+                name="6s task",
+                working_dir=".",
+                command_line="python -m demo.dummy_task -t 6",
+                output_file_path="task6.output.log"
+            ),
+            TaskInfo(
+                name="2s task",
+                working_dir=".",
+                command_line="python -m demo.dummy_task -t 2",
+                output_file_path="task2.output.log"
+            ),
+        ]
+
+        task_control_daemon.init_asyncio()
+        task = asyncio.create_task(task_control_daemon.run())
+
+        for t in demo_tasks:
+            task_control_daemon.add_task(t)
+
+        await task
+
+    except Exception:
+        logger.exception('task control daemon uncaught exception')
+
+    logger.info('task control daemon exited.')
+
+
+if __name__ == "__main__":
+    scheduler = TaskControlDaemon(StoreDB(QTASK_DATABASE_URL), './logs')
+    setup_data_dirs()
+    setup_logger()
+    asyncio.run(main(scheduler))

@@ -5,7 +5,7 @@ import threading
 
 from fastapi import FastAPI
 
-import qtaskd
+import qtask_ctrld
 from config import QTASK_DATABASE_URL
 from qtask_ctrld import TaskControlDaemon
 from store import StoreDB
@@ -54,4 +54,4 @@ else:
 scheduler_loop_thread = threading.Thread(target=run_scheduler_loop, args=(scheduler_loop,), daemon=False)
 scheduler_loop_thread.start()
 
-asyncio.run_coroutine_threadsafe(qtaskd.main(scheduler), scheduler_loop)
+asyncio.run_coroutine_threadsafe(qtask_ctrld.main(scheduler), scheduler_loop)
