@@ -1,11 +1,11 @@
 import logging
 from os.path import join as pjoin
 
-from config import QTASK_LOG_FILE_NAME
+from config import config
 
 
-def setup_logger(log_dir='./logs'):
+def setup_logger(log_dir=config['QTASK_LOGS_DIR']):
     logging.basicConfig(
-        filename=pjoin(log_dir, QTASK_LOG_FILE_NAME),
+        filename=pjoin(log_dir, config['QTASK_LOG_FILE_NAME']),
         level=logging.DEBUG,
         format='%(asctime)-15s %(levelname)s %(name)s %(message)s')

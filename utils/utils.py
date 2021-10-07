@@ -1,7 +1,7 @@
 import os
 
-from config import QTASK_DEFAULT_DATA_DIR
+from config import config
 
 
 def setup_data_dirs():
-    os.makedirs(QTASK_DEFAULT_DATA_DIR, exist_ok=True)
+    os.makedirs(config["QTASK_DATA_DIR"], exist_ok=True)

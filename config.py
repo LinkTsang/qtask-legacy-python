@@ -1,6 +1,15 @@
-from os.path import join as pjoin
+from typing import cast, TypedDict
 
-QTASK_APP_NAME = 'qtask'
-QTASK_DEFAULT_DATA_DIR = 'data'
-QTASK_DATABASE_URL = pjoin(f'sqlite:///./{QTASK_DEFAULT_DATA_DIR}/{QTASK_APP_NAME}.sqlite')
-QTASK_LOG_FILE_NAME = 'qtask.log'
+from dotenv import dotenv_values
+
+
+class Config(TypedDict):
+    QTASK_APP_NAME: str
+    QTASK_DATA_DIR: str
+    QTASK_DATABASE_URL: str
+    QTASK_LOGS_DIR: str
+    QTASK_TASK_LOGS_DIR: str
+    QTASK_LOG_FILE_NAME: str
+
+
+config: Config = cast(Config, dotenv_values(".env"))

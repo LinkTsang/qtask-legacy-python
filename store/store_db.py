@@ -6,12 +6,13 @@ from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker, Session
 
 import schemas
+from config import config
 from store import Store, models
 from store.models import Task, TaskStatus
 
 
 class StoreDB(Store):
-    def __init__(self, db_url: str):
+    def __init__(self, db_url: str = config['QTASK_DATABASE_URL']):
         self.db_url = db_url
         self.engine = create_engine(
             self.db_url, connect_args={"check_same_thread": False}

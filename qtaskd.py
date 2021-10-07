@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 from os.path import join as pjoin
 
+from config import config
 from schemas import TaskInfo, TaskStatus
 from utils import Observable
 
@@ -12,8 +13,10 @@ logger = logging.getLogger(__name__)
 
 class TaskDaemon:
 
-    def __init__(self, log_dir: str = './logs'):
-        self.task_output_dir = pjoin(log_dir, 'tasks')
+    def __init__(self):
+        self.log_dir = config["QTASK_LOGS_DIR"]
+        self.task_output_dir = config["QTASK_LOGS_DIR"]
+
         os.makedirs(self.task_output_dir, exist_ok=True)
 
         self._task_done = Observable()

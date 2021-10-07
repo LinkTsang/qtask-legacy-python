@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from typing import Set, List
 
-from config import QTASK_DATABASE_URL
+from config import config
 from qtaskd import TaskDaemon
 from schemas import TaskInfo, TaskId, TaskStatus
 from store import Store, StoreDB
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class TaskControlDaemon:
-    def __init__(self, store: Store, log_dir: str = './logs', max_concurrency_tasks=1):
+    def __init__(self, store: Store, log_dir: str = config['QTASK_LOGS_DIR'], max_concurrency_tasks=1):
         self.store = store
         self.log_dir = log_dir
         self.max_concurrency_tasks = max_concurrency_tasks
@@ -209,7 +209,7 @@ async def main(task_control_daemon: TaskControlDaemon):
 
 
 if __name__ == "__main__":
-    scheduler = TaskControlDaemon(StoreDB(QTASK_DATABASE_URL), './logs')
+    scheduler = TaskControlDaemon(StoreDB())
     setup_data_dirs()
     setup_logger()
     asyncio.run(main(scheduler))
