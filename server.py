@@ -7,7 +7,7 @@ from fastapi import FastAPI
 
 import qtask_ctrld
 from qtask_ctrld import TaskControlDaemon
-from schemas import TaskStatusList
+from schemas import TaskStatusList, TaskInfo
 from store import StoreDB
 from utils import setup_logger, setup_data_dirs
 
@@ -38,6 +38,12 @@ def get_status() -> TaskStatusList:
 @app.get("/tasks/{task_id}")
 def get_task(task_id: int):
     return {"item_id": task_id}
+
+
+@app.post("/tasks")
+def add_task(task: TaskInfo):
+    scheduler.add_task(task)
+    return task
 
 
 def run_scheduler_loop(loop):
