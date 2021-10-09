@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from typing import List, Set, Deque
 
 from sqlalchemy import create_engine, desc
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker, Session, scoped_session
 
 import schemas
 from config import config
@@ -18,7 +18,7 @@ class StoreDB(Store):
             self.db_url, connect_args={"check_same_thread": False}
         )
         models.Base.metadata.create_all(bind=self.engine)
-        self.session_local = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+        self.session_local = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=self.engine))
 
         self._running_task_ids: Set[schemas.TaskId] = set()
         self._ready_task_ids: Deque[schemas.TaskId] = deque()
@@ -31,7 +31,7 @@ class StoreDB(Store):
         try:
             yield session
         finally:
-            session.close()
+            self.session_local.remove()
 
     def enqueue_task(self, task: schemas.TaskInfo):
         with self.get_db() as db:
