@@ -49,7 +49,7 @@ class TaskControlDaemon:
     def get_status(self):
         store = self.store
         running_tasks = store.get_activating_tasks()
-        pending_tasks = store.get_activating_tasks()
+        pending_tasks = store.get_pending_tasks()
         terminated_tasks = self.store.get_terminated_tasks()
 
         return {
