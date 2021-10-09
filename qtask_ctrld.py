@@ -6,7 +6,7 @@ from typing import Set, List
 
 from config import config
 from qtaskd import TaskDaemon
-from schemas import TaskInfo, TaskId, TaskStatus
+from schemas import TaskInfo, TaskId, TaskStatus, TaskStatusList
 from store import Store, StoreDB
 from utils import setup_logger, setup_data_dirs
 
@@ -46,7 +46,7 @@ class TaskControlDaemon:
         self.store.enqueue_task(task)
         self._event_task_schedule.set()
 
-    def get_status(self):
+    def get_status(self) -> TaskStatusList:
         store = self.store
         running_tasks = store.get_activating_tasks()
         pending_tasks = store.get_pending_tasks()

@@ -1,7 +1,7 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import Optional, TypeVar
+from typing import Optional, TypeVar, TypedDict, List
 
 from pydantic import BaseModel, Field
 from pydantic.utils import to_camel
@@ -48,3 +48,9 @@ class TaskInfo(BaseModel):
 class ActivatingTaskInfo(TaskInfo):
     process_current: Optional[int]
     process_total: Optional[int]
+
+
+class TaskStatusList(TypedDict):
+    running_tasks: List[TaskInfo]
+    pending_tasks: List[TaskInfo]
+    terminated_tasks: List[TaskInfo]

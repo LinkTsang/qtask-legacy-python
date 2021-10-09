@@ -7,6 +7,7 @@ from fastapi import FastAPI
 
 import qtask_ctrld
 from qtask_ctrld import TaskControlDaemon
+from schemas import TaskStatusList
 from store import StoreDB
 from utils import setup_logger, setup_data_dirs
 
@@ -29,8 +30,8 @@ def read_root():
     return {"Hello": "QTask"}
 
 
-@app.get("/status")
-def get_status():
+@app.get("/status", response_model=TaskStatusList)
+def get_status() -> TaskStatusList:
     return scheduler.get_status()
 
 
