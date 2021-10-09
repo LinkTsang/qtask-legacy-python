@@ -1,8 +1,9 @@
 import asyncio
 import logging
 import os
+from asyncio import AbstractEventLoop
 from datetime import datetime
-from typing import Set, List
+from typing import Set, List, Optional
 
 from config import config
 from qtaskd import TaskDaemon
@@ -23,6 +24,7 @@ class TaskControlDaemon:
 
         self._waiting_events: Set[asyncio.Future] = set()
 
+        self._asyncio_loop: Optional[AbstractEventLoop] = None
         self._event_task_schedule = None
         self._event_exit = None
 
@@ -37,6 +39,8 @@ class TaskControlDaemon:
         self._taskd = taskd
 
     def init_asyncio(self):
+        self._asyncio_loop = asyncio.get_event_loop()
+
         self._event_task_schedule = asyncio.Event()
         self._event_exit = asyncio.Event()
 
@@ -44,7 +48,7 @@ class TaskControlDaemon:
 
     def add_task(self, task: TaskInfo):
         self.store.enqueue_task(task)
-        self._event_task_schedule.set()
+        self._set_event_task_schedule()
 
     def get_status(self) -> TaskStatusList:
         store = self.store
@@ -115,7 +119,7 @@ class TaskControlDaemon:
                 if t in asyncio_tasks:
                     if t.exception():
                         logger.info(t.exception())
-                    self._event_task_schedule.set()
+                    self._set_event_task_schedule()
                     asyncio_tasks.remove(t)
 
             if self._event_exit.is_set():
@@ -124,7 +128,10 @@ class TaskControlDaemon:
         logger.info('exit')
 
     def exit(self):
-        self._event_exit.set()
+        self._set_event_exit()
+
+    def _set_event_task_schedule(self):
+        self._asyncio_loop.call_soon_threadsafe(self._event_task_schedule.set)
 
     async def _wait_event_task_schedule(self):
         store = self.store
@@ -154,6 +161,9 @@ class TaskControlDaemon:
             for t in tasks:
                 logger.error('task %r@%s detached from status %r', t.name, t.id, t.status)
                 store.update_task_status_by_id(t.id, TaskStatus.DETACHED)
+
+    def _set_event_exit(self):
+        self._asyncio_loop.call_soon_threadsafe(self._event_exit.set)
 
     async def _wait_event_exit(self):
         await self._event_exit.wait()
