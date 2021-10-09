@@ -83,9 +83,9 @@ class StoreDB(Store):
     def get_activating_tasks(self) -> List[schemas.TaskInfo]:
         with self.get_db() as db:
             tasks = db.query(Task) \
-                .filter(Task.status == TaskStatus.READY
-                        or Task.status == TaskStatus.RUNNING
-                        or Task.status == TaskStatus.PAUSED) \
+                .filter((Task.status == TaskStatus.READY)
+                        | (Task.status == TaskStatus.RUNNING)
+                        | (Task.status == TaskStatus.PAUSED)) \
                 .all()
             return list(map(schemas.TaskInfo.from_orm, tasks))
 
@@ -99,19 +99,19 @@ class StoreDB(Store):
     def get_terminated_tasks(self) -> List[schemas.TaskInfo]:
         with self.get_db() as db:
             tasks = db.query(Task) \
-                .filter(Task.status == TaskStatus.CANCELED
-                        or Task.status == TaskStatus.COMPLETED
-                        or Task.status == TaskStatus.DETACHED
-                        or Task.status == TaskStatus.ERROR) \
+                .filter((Task.status == TaskStatus.CANCELED)
+                        | (Task.status == TaskStatus.COMPLETED)
+                        | (Task.status == TaskStatus.DETACHED)
+                        | (Task.status == TaskStatus.ERROR)) \
                 .all()
             return list(map(schemas.TaskInfo.from_orm, tasks))
 
     def exists_activating_tasks(self) -> bool:
         with self.get_db() as db:
             return db.query(
-                db.query(Task).filter(Task.status == TaskStatus.READY
-                                      or Task.status == TaskStatus.RUNNING
-                                      or Task.status == TaskStatus.PAUSED).exists()
+                db.query(Task).filter((Task.status == TaskStatus.READY)
+                                      | (Task.status == TaskStatus.RUNNING)
+                                      | (Task.status == TaskStatus.PAUSED)).exists()
             ).scalar()
 
     def exists_pending_tasks(self) -> bool:
@@ -122,9 +122,10 @@ class StoreDB(Store):
 
     def count_activating_tasks(self) -> int:
         with self.get_db() as db:
-            return db.query(Task).filter(Task.status == TaskStatus.READY
-                                         or Task.status == TaskStatus.RUNNING
-                                         or Task.status == TaskStatus.PAUSED).count()
+            pass
+        return db.query(Task).filter((Task.status == TaskStatus.READY)
+                                     | (Task.status == TaskStatus.RUNNING)
+                                     | (Task.status == TaskStatus.PAUSED)).count()
 
     def count_pending_tasks(self) -> int:
         with self.get_db() as db:
