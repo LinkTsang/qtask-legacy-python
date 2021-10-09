@@ -104,7 +104,7 @@ class StoreDB(Store):
                         or Task.status == TaskStatus.DETACHED
                         or Task.status == TaskStatus.ERROR) \
                 .all()
-            return list(tasks.map(schemas.TaskInfo.from_orm))
+            return list(map(schemas.TaskInfo.from_orm, tasks))
 
     def exists_activating_tasks(self) -> bool:
         with self.get_db() as db:
