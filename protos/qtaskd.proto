@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package qtaskd;
+
+import "google/protobuf/timestamp.proto";
+
+service QTaskDaemon {
+  rpc Echo (Request) returns (Reply) {}
+  rpc RunTask (RunTaskRequest) returns (Reply) {}
+  rpc GetTask (GetTaskRequest) returns (GetTaskReply) {}
+}
+
+message Request {
+  string message = 1;
+}
+
+message Reply {
+  string message = 1;
+}
+
+message RunTaskRequest {
+  string id = 1;
+
+  string status = 2;
+
+  google.protobuf.Timestamp created_at = 3;
+  optional google.protobuf.Timestamp started_at = 4;
+  optional google.protobuf.Timestamp paused_at = 5;
+  optional google.protobuf.Timestamp terminated_at = 6;
+
+  string name = 7;
+  string description = 8;
+
+  string working_dir = 9;
+  string command_line = 10;
+  string output_file_path = 11;
+}
+
+message GetTaskRequest {
+
+}
+
+message GetTaskReply {
+  string id = 1;
+  string status = 2;
+}
+
