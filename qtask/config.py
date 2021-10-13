@@ -11,6 +11,7 @@ class Config(TypedDict):
     QTASK_LOGS_DIR: str
     QTASK_TASK_LOGS_DIR: str
     QTASK_LOG_FILE_NAME: str
+    QTASK_ZOOKEEPER_HOSTS: str
 
 
 config: Config = cast(Config, dotenv_values(".env"))
