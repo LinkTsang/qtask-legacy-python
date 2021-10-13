@@ -1,6 +1,6 @@
 import os
 
-from config import config
+from qtask.config import config
 
 
 def setup_data_dirs():

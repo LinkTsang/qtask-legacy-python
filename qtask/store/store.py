@@ -1,7 +1,7 @@
 import abc
 from typing import List
 
-import schemas
+from qtask import schemas
 
 
 class Store(metaclass=abc.ABCMeta):

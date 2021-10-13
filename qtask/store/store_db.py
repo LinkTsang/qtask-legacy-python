@@ -5,10 +5,11 @@ from typing import List, Set, Deque
 from sqlalchemy import create_engine, desc
 from sqlalchemy.orm import sessionmaker, Session, scoped_session
 
-import schemas
-from config import config
-from store import Store, models
-from store.models import Task, TaskStatus
+from qtask import schemas
+from qtask.config import config
+from qtask.store import Store
+from qtask.store import models
+from qtask.store.models import Task, TaskStatus
 
 
 class StoreDB(Store):

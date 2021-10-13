@@ -1,7 +1,7 @@
 import logging
 from os.path import join as pjoin
 
-from config import config
+from qtask.config import config
 
 
 def setup_logger(log_dir=config['QTASK_LOGS_DIR']):

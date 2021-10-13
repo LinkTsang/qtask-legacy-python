@@ -4,9 +4,9 @@ import os
 from datetime import datetime
 from os.path import join as pjoin
 
-from config import config
-from schemas import TaskInfo, TaskStatus
-from utils import Observable
+from qtask.config import config
+from qtask.schemas import TaskInfo, TaskStatus
+from qtask.utils import Observable
 
 logger = logging.getLogger(__name__)
 

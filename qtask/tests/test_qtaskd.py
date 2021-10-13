@@ -1,8 +1,8 @@
 import unittest
 
-from qtaskd import TaskDaemon
-from schemas import TaskInfo, TaskStatus
-from utils.testing import async_test
+from qtask.qtaskd import TaskDaemon
+from qtask.schemas import TaskInfo, TaskStatus
+from qtask.utils.testing import async_test
 
 
 class TaskDaemonTestCase(unittest.TestCase):
@@ -11,7 +11,7 @@ class TaskDaemonTestCase(unittest.TestCase):
         dummy_task = TaskInfo(
             name="1s task",
             status=TaskStatus.READY,
-            working_dir=".",
+            working_dir="",
             command_line="python -m demo.dummy_task -t 1",
             output_file_path="task1.output.log",
         )

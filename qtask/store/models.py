@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, DateTime, Enum
 
-import schemas
 from .db import Base
+from .. import schemas
 
 TaskId = schemas.TaskId
 

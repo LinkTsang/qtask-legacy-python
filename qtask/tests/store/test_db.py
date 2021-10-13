@@ -1,9 +1,9 @@
 import unittest
 
-from config import config
-from schemas import TaskInfo, TaskStatus
-from store import StoreDB
-from utils import setup_data_dirs
+from qtask.config import config
+from qtask.schemas import TaskInfo, TaskStatus
+from qtask.store import StoreDB
+from qtask.utils import setup_data_dirs
 
 
 class StoreDBTestCase(unittest.TestCase):
@@ -15,13 +15,13 @@ class StoreDBTestCase(unittest.TestCase):
         store = StoreDB(config['QTASK_DATABASE_TEST_URL'])
         task1 = TaskInfo(
             name="6s task",
-            working_dir=".",
+            working_dir="",
             command_line="python -m demo.dummy_task -t 6",
             output_file_path="task6.output.log"
         )
         task2 = TaskInfo(
             name="2s task",
-            working_dir=".",
+            working_dir="",
             command_line="python -m demo.dummy_task -t 2",
             output_file_path="task2.output.log"
         )
