@@ -12,7 +12,8 @@ class Config(TypedDict):
     QTASK_TASK_LOGS_DIR: str
     QTASK_LOG_FILE_NAME: str
     QTASK_ZOOKEEPER_HOSTS: str
-    QTASK_DAEMON_RPC_ADDRESS: str
+    QTASK_DAEMON_RPC_HOST: str
+    QTASK_DAEMON_RPC_PORT: int
 
 
 config: Config = cast(Config, dotenv_values(".env"))
