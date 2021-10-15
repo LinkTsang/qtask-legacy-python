@@ -1,3 +1,6 @@
-set PROTOS_PATH=%~dp0..\protos
-set OUTPUT_PATH=%~dp0..
-python -m grpc_tools.protoc --experimental_allow_proto3_optional -I %PROTOS_PATH% --python_out=%OUTPUT_PATH% --grpc_python_out=%OUTPUT_PATH% %PROTOS_PATH%/qtaskd.proto
+set PROTOS_PATH=%~dp0..\qtask\protos
+set OUTPUT_PATH=%~dp0..\qtask\protos
+python -m grpc_tools.protoc ^
+-I %PROTOS_PATH% ^
+--python_betterproto_out=%OUTPUT_PATH% ^
+%PROTOS_PATH%/qtaskd.proto
