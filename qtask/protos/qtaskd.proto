@@ -24,9 +24,9 @@ message RunTaskRequest {
   string status = 2;
 
   google.protobuf.Timestamp created_at = 3;
-  optional google.protobuf.Timestamp started_at = 4;
-  optional google.protobuf.Timestamp paused_at = 5;
-  optional google.protobuf.Timestamp terminated_at = 6;
+  google.protobuf.Timestamp started_at = 4;
+  google.protobuf.Timestamp paused_at = 5;
+  google.protobuf.Timestamp terminated_at = 6;
 
   string name = 7;
   string description = 8;
