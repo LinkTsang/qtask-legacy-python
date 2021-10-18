@@ -1,12 +1,14 @@
 import asyncio
 import logging
 import os
+import sys
+import traceback
 from asyncio import AbstractEventLoop
 from datetime import datetime
 from typing import Set, List, Optional
 
 from config import config
-from qtaskd import TaskDaemon
+from qtask.agent import TaskAgent
 from schemas import TaskInfo, TaskId, TaskStatus, TaskStatusList
 from store import Store, StoreDB
 from utils import setup_logger, setup_data_dirs
@@ -213,6 +215,8 @@ async def main(task_control_daemon: TaskControlDaemon):
 
     except Exception:
         logger.exception('task control daemon uncaught exception')
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        traceback.print_exception(exc_type, exc_value, exc_traceback)
 
     logger.info('task control daemon exited.')
     print('task control daemon exited.')
