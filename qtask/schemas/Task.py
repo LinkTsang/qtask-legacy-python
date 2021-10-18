@@ -1,6 +1,6 @@
-import enum
 import uuid
 from datetime import datetime
+from enum import Enum
 from typing import Optional, TypeVar, TypedDict, List
 
 from pydantic import BaseModel, Field
@@ -9,7 +9,7 @@ from pydantic.utils import to_camel
 TaskId = TypeVar('TaskId', bound=str)
 
 
-class TaskStatus(enum.Enum):
+class TaskStatus(str, Enum):
     READY = "READY"
     RUNNING = "RUNNING"
     PAUSED = "PAUSED"
