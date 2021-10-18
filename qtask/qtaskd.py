@@ -6,6 +6,7 @@ from os.path import join as pjoin
 
 from qtask.config import config
 from qtask.schemas import TaskInfo, TaskStatus
+from qtask.schemas.executor import ExecutorStatus
 from qtask.utils import Observable
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,8 @@ class TaskDaemon:
 
         os.makedirs(self.task_output_dir, exist_ok=True)
 
+        self._status: ExecutorStatus = ExecutorStatus.IDLE
+
         self._task_done = Observable()
         self._task_failed = Observable()
 
@@ -29,6 +32,10 @@ class TaskDaemon:
     @property
     def task_failed(self) -> Observable:
         return self._task_failed
+
+    @property
+    def status(self) -> ExecutorStatus:
+        return self._status
 
     async def run_task(self, task: TaskInfo):
         status = task.status
@@ -48,6 +55,8 @@ class TaskDaemon:
 
             return
 
+        self._status = ExecutorStatus.BUSY
+
         with open(output_file_path, 'w') as output_file:
             proc = await asyncio.create_subprocess_shell(
                 cmd,
@@ -57,6 +66,8 @@ class TaskDaemon:
             _ = await proc.wait()
 
         logger.info('task %r@%s exited with %d', task.name, task.id, proc.returncode)
+
+        self._status = ExecutorStatus.IDLE
 
         task.status = TaskStatus.COMPLETED
         task.terminated_at = datetime.now()
