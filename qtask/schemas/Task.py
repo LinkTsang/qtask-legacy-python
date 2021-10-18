@@ -43,6 +43,7 @@ class TaskInfo(BaseModel):
         alias_generator = to_camel
         allow_population_by_field_name = True
         orm_mode = True
+        use_enum_values = True
 
 
 class ActivatingTaskInfo(TaskInfo):
