@@ -37,7 +37,7 @@ class TaskDaemon:
     def status(self) -> ExecutorStatus:
         return self._status
 
-    async def run_task(self, task: TaskInfo):
+    async def run_task(self, task: TaskInfo) -> TaskInfo:
         status = task.status
         cmd = task.command_line
         output_dir = pjoin(self.task_output_dir, task.id)
@@ -53,7 +53,7 @@ class TaskDaemon:
 
             self.task_failed.fire(task)
 
-            return
+            return task
 
         self._status = ExecutorStatus.BUSY
 
@@ -73,3 +73,5 @@ class TaskDaemon:
         task.terminated_at = datetime.now()
 
         self.task_done.fire(task)
+
+        return task
