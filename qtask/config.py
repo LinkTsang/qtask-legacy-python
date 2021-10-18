@@ -1,4 +1,4 @@
-from typing import cast, TypedDict
+from typing import TypedDict
 
 from dotenv import dotenv_values
 
@@ -16,4 +16,13 @@ class Config(TypedDict):
     QTASK_DAEMON_RPC_PORT: int
 
 
-config: Config = cast(Config, dotenv_values(".env"))
+def load_config() -> Config:
+    annotations = Config.__annotations__
+    config = {}
+    for k, v in dotenv_values(".env").items():
+        t = annotations[k]
+        config[k] = t(v)
+    return config
+
+
+config: Config = load_config()
