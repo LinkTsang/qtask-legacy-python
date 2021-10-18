@@ -8,7 +8,7 @@ from kazoo.client import KazooClient
 from kazoo.protocol.states import KazooState
 
 from qtask.config import config
-from qtask.protos.qtaskd import QTaskDaemonBase, GetTaskReply, Reply
+from qtask.protos.qtaskd import QTaskDaemonBase, GetTaskReply, Reply, ExecutorInfo, ExecutorInfoStatus
 from qtask.qtaskd import TaskDaemon
 from qtask.schemas import TaskInfo
 from qtask.utils import setup_logger
@@ -96,8 +96,9 @@ class TaskDaemonRpcServer:
 
     def register_rpc_node(self):
         self.zk_client.ensure_path('/qtask/qtaskd')
+        executor_info = ExecutorInfo(host=self.grpc_host, port=self.grpc_port, status=ExecutorInfoStatus.IDLE)
         z_node = self.zk_client.create('/qtask/qtaskd/qtask-instance',
-                                       self.grpc_address.encode('UTF-8'),
+                                       executor_info.SerializeToString(),
                                        ephemeral=True,
                                        sequence=True)
         logger.info('register rpc node: %s', z_node)
