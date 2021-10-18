@@ -27,30 +27,28 @@ class TaskControlDaemon:
         self._waiting_events: Set[asyncio.Future] = set()
 
         self._asyncio_loop: Optional[AbstractEventLoop] = None
-        self._event_task_schedule = None
-        self._event_exit = None
+        self._task_schedulable: Optional[asyncio.Condition] = None
+        self._event_exit: Optional[asyncio.Event] = None
 
         self._asyncio_tasks: Set[asyncio.Future] = set()
 
         os.makedirs(self.log_dir, exist_ok=True)
 
-        taskd = TaskDaemon()
-        taskd.task_done.on(self._handle_task_done)
-        taskd.task_failed.on(self._handle_task_failed)
-
-        self._taskd = taskd
+        self._agent: Optional[TaskAgent] = None
 
     def init_asyncio(self):
         self._asyncio_loop = asyncio.get_event_loop()
 
-        self._event_task_schedule = asyncio.Event()
+        self._agent = TaskAgent()
+        self._task_schedulable = asyncio.Condition()
         self._event_exit = asyncio.Event()
 
         self.asyncio_initialized = True
 
-    def add_task(self, task: TaskInfo):
+    async def add_task(self, task: TaskInfo):
         self.store.enqueue_task(task)
-        self._set_event_task_schedule()
+        async with self._task_schedulable:
+            self._task_schedulable.notify()
 
     def get_status(self) -> TaskStatusList:
         store = self.store
@@ -86,11 +84,13 @@ class TaskControlDaemon:
 
         logger.info('start')
 
+        self._agent.start()
+
         self._check_and_clean_detached_tasks()
 
         waiting_events = self._waiting_events
 
-        waiting_events.add(asyncio.create_task(self._wait_event_task_schedule()))
+        waiting_events.add(asyncio.create_task(self._task_schedule_loop()))
 
         waiting_events.add(asyncio.create_task(self._wait_event_exit()))
 
@@ -121,7 +121,11 @@ class TaskControlDaemon:
                 if t in asyncio_tasks:
                     if t.exception():
                         logger.info(t.exception())
-                    self._set_event_task_schedule()
+
+                    if self.store.exists_pending_tasks():
+                        async with self._task_schedulable:
+                            self._task_schedulable.notify()
+
                     asyncio_tasks.remove(t)
 
             if self._event_exit.is_set():
@@ -132,28 +136,36 @@ class TaskControlDaemon:
     def exit(self):
         self._set_event_exit()
 
-    def _set_event_task_schedule(self):
-        self._asyncio_loop.call_soon_threadsafe(self._event_task_schedule.set)
-
-    async def _wait_event_task_schedule(self):
+    async def _task_schedule_loop(self):
         store = self.store
 
-        await self._event_task_schedule.wait()
-        self._event_task_schedule.clear()
+        try:
+            while not store.exists_pending_tasks():
+                async with self._task_schedulable:
+                    await self._task_schedulable.wait()
 
-        logger.debug('_event_task_schedule set')
+            while not self._agent.is_any_executor_idle():
+                async with self._agent.cond_executor_node_changed:
+                    await self._agent.cond_executor_node_changed.wait()
 
-        while store.exists_pending_tasks() \
-                and self.max_concurrency_tasks > store.count_activating_tasks():
             task = store.dequeue_task()
             task.started_at = datetime.now()
             task.status = TaskStatus.READY
             store.update_task(task)
 
-            self._asyncio_tasks.add(asyncio.create_task(self._run_task(task)))
+            self._asyncio_tasks.add(asyncio.create_task(self._schedule_task(task)))
 
-        self._waiting_events.add(
-            asyncio.create_task(self._wait_event_task_schedule()))
+            if store.exists_pending_tasks():
+                async with self._task_schedulable:
+                    self._task_schedulable.notify()
+
+            self._waiting_events.add(
+                asyncio.create_task(self._task_schedule_loop()))
+
+        except Exception:
+            logger.exception('task control daemon uncaught exception')
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback.print_exception(exc_type, exc_value, exc_traceback)
 
     def _check_and_clean_detached_tasks(self):
         store = self.store
@@ -175,14 +187,19 @@ class TaskControlDaemon:
         waiting_events = self._waiting_events
         waiting_events.add(asyncio.create_task(self._wait_event_exit()))
 
-    async def _run_task(self, task: TaskInfo):
-        await self._taskd.run_task(task)
+    async def _schedule_task(self, task: TaskInfo):
+        try:
+            logger.debug('task scheduled: name=%r, status=%s, id=%r', task.name, task.status, task.id)
 
-    def _handle_task_done(self, task: TaskInfo):
-        self.store.update_task(task)
+            task = await self._agent.schedule_task(task)
+            self.store.update_task(task)
 
-    def _handle_task_failed(self, task: TaskInfo):
-        self.store.update_task(task)
+            logger.debug('task done: name=%r, status=%s, id=%r', task.name, task.status, task.id)
+
+        except Exception:
+            logger.exception('task control daemon uncaught exception')
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback.print_exception(exc_type, exc_value, exc_traceback)
 
 
 async def main(task_control_daemon: TaskControlDaemon):
@@ -209,7 +226,7 @@ async def main(task_control_daemon: TaskControlDaemon):
         task = asyncio.create_task(task_control_daemon.run())
 
         for t in demo_tasks:
-            task_control_daemon.add_task(t)
+            await task_control_daemon.add_task(t)
 
         await task
 
