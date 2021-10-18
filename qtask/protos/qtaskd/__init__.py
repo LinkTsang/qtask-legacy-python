@@ -10,6 +10,11 @@ import grpclib
 from betterproto.grpc.grpclib_server import ServiceBase
 
 
+class ExecutorInfoStatus(betterproto.Enum):
+    IDLE = 0
+    BUSY = 1
+
+
 @dataclass(eq=False, repr=False)
 class Request(betterproto.Message):
     message: str = betterproto.string_field(1)
@@ -44,6 +49,13 @@ class GetTaskRequest(betterproto.Message):
 class GetTaskReply(betterproto.Message):
     id: str = betterproto.string_field(1)
     status: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class ExecutorInfo(betterproto.Message):
+    host: str = betterproto.string_field(1)
+    port: int = betterproto.int32_field(2)
+    status: "ExecutorInfoStatus" = betterproto.enum_field(3)
 
 
 class QTaskDaemonStub(betterproto.ServiceStub):

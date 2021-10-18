@@ -45,3 +45,13 @@ message GetTaskReply {
   string status = 2;
 }
 
+
+message ExecutorInfo {
+  string host = 1;
+  int32 port = 2;
+  enum Status {
+    IDLE = 0;
+    BUSY = 1;
+  }
+  Status status = 3;
+}
