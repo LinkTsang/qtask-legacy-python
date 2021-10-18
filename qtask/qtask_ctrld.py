@@ -11,7 +11,7 @@ from schemas import TaskInfo, TaskId, TaskStatus, TaskStatusList
 from store import Store, StoreDB
 from utils import setup_logger, setup_data_dirs
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('qtask.scheduler')
 
 
 class TaskControlDaemon:
