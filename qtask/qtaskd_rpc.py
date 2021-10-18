@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime
+from typing import Optional
 
 import grpclib
 from grpclib.server import Server
@@ -18,7 +19,8 @@ logger = logging.getLogger('qtaskd_rpc')
 
 class QTaskDaemonService(QTaskDaemonBase):
 
-    def __init__(self, daemon: TaskDaemon):
+    def __init__(self, server: 'TaskDaemonRpcServer', daemon: TaskDaemon):
+        self.server = server
         self.daemon = daemon
 
     async def echo(self, message: str) -> Reply:
@@ -38,6 +40,9 @@ class QTaskDaemonService(QTaskDaemonBase):
             command_line: str,
             output_file_path: str,
     ) -> Reply:
+        self.server.executor_info.status = ExecutorInfoStatus.BUSY
+        self.server.update_node()
+
         task_info = await self.daemon.run_task(TaskInfo(
             id=id,
             status=status,
@@ -51,6 +56,10 @@ class QTaskDaemonService(QTaskDaemonBase):
             command_line=command_line,
             output_file_path=output_file_path,
         ))
+
+        self.server.executor_info.status = ExecutorInfoStatus.IDLE
+        self.server.update_node()
+
         return TaskDetail.from_dict(**task_info.dict())
 
     async def get_task(self) -> GetTaskReply:
@@ -60,7 +69,7 @@ class QTaskDaemonService(QTaskDaemonBase):
 class TaskDaemonRpcServer:
     def __init__(self, daemon: TaskDaemon):
         daemon.task_done.on(self._handle_task_done)
-        self.task_daemon_service = QTaskDaemonService(daemon)
+        self.task_daemon_service = QTaskDaemonService(self, daemon)
 
         self.grpc_host = config["QTASK_DAEMON_RPC_HOST"]
         self.grpc_port = config["QTASK_DAEMON_RPC_PORT"]
@@ -69,6 +78,8 @@ class TaskDaemonRpcServer:
         self.zk_hosts = config["QTASK_ZOOKEEPER_HOSTS"]
         self.zk_client = KazooClient(hosts=self.zk_hosts)
         self.zk_last_state = KazooState.LOST
+        self._current_zk_node: Optional[str] = None
+        self.executor_info = ExecutorInfo(host=self.grpc_host, port=self.grpc_port, status=ExecutorInfoStatus.IDLE)
 
     async def run(self):
         server = Server([self.task_daemon_service])
@@ -96,12 +107,14 @@ class TaskDaemonRpcServer:
 
     def register_rpc_node(self):
         self.zk_client.ensure_path('/qtask/qtaskd')
-        executor_info = ExecutorInfo(host=self.grpc_host, port=self.grpc_port, status=ExecutorInfoStatus.IDLE)
-        z_node = self.zk_client.create('/qtask/qtaskd/qtask-instance',
-                                       executor_info.SerializeToString(),
-                                       ephemeral=True,
-                                       sequence=True)
-        logger.info('register rpc node: %s', z_node)
+        self._current_zk_node = self.zk_client.create('/qtask/qtaskd/qtask-instance',
+                                                      self.executor_info.SerializeToString(),
+                                                      ephemeral=True,
+                                                      sequence=True)
+        logger.info('register rpc node: %s', self._current_zk_node)
+
+    def update_node(self):
+        self.zk_client.set(self._current_zk_node, self.executor_info.SerializeToString())
 
     def _handle_task_done(self):
         pass
