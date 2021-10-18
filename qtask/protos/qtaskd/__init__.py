@@ -26,7 +26,7 @@ class Reply(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
-class RunTaskRequest(betterproto.Message):
+class TaskDetail(betterproto.Message):
     id: str = betterproto.string_field(1)
     status: str = betterproto.string_field(2)
     created_at: datetime = betterproto.message_field(3)
@@ -80,9 +80,9 @@ class QTaskDaemonStub(betterproto.ServiceStub):
             working_dir: str = "",
             command_line: str = "",
             output_file_path: str = "",
-    ) -> "Reply":
+    ) -> "TaskDetail":
 
-        request = RunTaskRequest()
+        request = TaskDetail()
         request.id = id
         request.status = status
         if created_at is not None:
@@ -99,7 +99,9 @@ class QTaskDaemonStub(betterproto.ServiceStub):
         request.command_line = command_line
         request.output_file_path = output_file_path
 
-        return await self._unary_unary("/qtaskd.QTaskDaemon/RunTask", request, Reply)
+        return await self._unary_unary(
+            "/qtaskd.QTaskDaemon/RunTask", request, TaskDetail
+        )
 
     async def get_task(self) -> "GetTaskReply":
 
@@ -127,7 +129,7 @@ class QTaskDaemonBase(ServiceBase):
             working_dir: str,
             command_line: str,
             output_file_path: str,
-    ) -> "Reply":
+    ) -> "TaskDetail":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
     async def get_task(self) -> "GetTaskReply":
@@ -182,8 +184,8 @@ class QTaskDaemonBase(ServiceBase):
             "/qtaskd.QTaskDaemon/RunTask": grpclib.const.Handler(
                 self.__rpc_run_task,
                 grpclib.const.Cardinality.UNARY_UNARY,
-                RunTaskRequest,
-                Reply,
+                TaskDetail,
+                TaskDetail,
             ),
             "/qtaskd.QTaskDaemon/GetTask": grpclib.const.Handler(
                 self.__rpc_get_task,

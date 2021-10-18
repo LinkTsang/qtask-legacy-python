@@ -6,7 +6,7 @@ import "google/protobuf/timestamp.proto";
 
 service QTaskDaemon {
   rpc Echo (Request) returns (Reply) {}
-  rpc RunTask (RunTaskRequest) returns (Reply) {}
+  rpc RunTask (TaskDetail) returns (TaskDetail) {}
   rpc GetTask (GetTaskRequest) returns (GetTaskReply) {}
 }
 
@@ -18,7 +18,7 @@ message Reply {
   string message = 1;
 }
 
-message RunTaskRequest {
+message TaskDetail {
   string id = 1;
 
   string status = 2;

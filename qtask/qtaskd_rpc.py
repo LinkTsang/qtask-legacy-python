@@ -8,7 +8,7 @@ from kazoo.client import KazooClient
 from kazoo.protocol.states import KazooState
 
 from qtask.config import config
-from qtask.protos.qtaskd import QTaskDaemonBase, GetTaskReply, Reply, ExecutorInfo, ExecutorInfoStatus
+from qtask.protos.qtaskd import QTaskDaemonBase, GetTaskReply, Reply, ExecutorInfo, ExecutorInfoStatus, TaskDetail
 from qtask.qtaskd import TaskDaemon
 from qtask.schemas import TaskInfo
 from qtask.utils import setup_logger
@@ -38,7 +38,7 @@ class QTaskDaemonService(QTaskDaemonBase):
             command_line: str,
             output_file_path: str,
     ) -> Reply:
-        asyncio.create_task(self.daemon.run_task(TaskInfo(
+        task_info = await self.daemon.run_task(TaskInfo(
             id=id,
             status=status,
             created_at=created_at,
@@ -50,8 +50,8 @@ class QTaskDaemonService(QTaskDaemonBase):
             working_dir=working_dir,
             command_line=command_line,
             output_file_path=output_file_path,
-        )))
-        return Reply(message=f'task {id} started.')
+        ))
+        return TaskDetail.from_dict(**task_info.dict())
 
     async def get_task(self) -> GetTaskReply:
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
