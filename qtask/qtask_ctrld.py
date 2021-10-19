@@ -95,6 +95,8 @@ class TaskControlDaemon:
         waiting_events.add(asyncio.create_task(self._wait_event_exit()))
 
         while True:
+            await self._notify_schedule()
+
             asyncio_tasks = self._asyncio_tasks
             futures = waiting_events | asyncio_tasks
 
@@ -121,11 +123,6 @@ class TaskControlDaemon:
                 if t in asyncio_tasks:
                     if t.exception():
                         logger.info(t.exception())
-
-                    if self.store.exists_pending_tasks():
-                        async with self._task_schedulable:
-                            self._task_schedulable.notify()
-
                     asyncio_tasks.remove(t)
 
             if self._event_exit.is_set():
@@ -135,6 +132,11 @@ class TaskControlDaemon:
 
     def exit(self):
         self._set_event_exit()
+
+    async def _notify_schedule(self):
+        if self.store.exists_pending_tasks():
+            async with self._task_schedulable:
+                self._task_schedulable.notify()
 
     async def _task_schedule_loop(self):
         store = self.store
