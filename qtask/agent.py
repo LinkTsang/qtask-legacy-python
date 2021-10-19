@@ -5,7 +5,7 @@ from typing import Optional, Dict
 from betterproto import Casing
 from grpclib.client import Channel
 from kazoo.client import KazooClient
-from kazoo.protocol.states import KazooState, ZnodeStat
+from kazoo.protocol.states import KazooState, ZnodeStat, WatchedEvent, EventType
 
 from qtask.config import config
 from qtask.protos.executor import ExecutorStub, ExecutorInfo, ExecutorInfoStatus
@@ -116,46 +116,43 @@ class TaskAgent:
             logger.info('/qtask/executor children update: %r', children)
             for node in children:
                 path = f'/qtask/executor/{node}'
-                asyncio.run_coroutine_threadsafe(self._handle_executor_node_changed(path), loop)
+                if path not in self.executor_nodes:
+                    asyncio.run_coroutine_threadsafe(self._handle_executor_node_create(path), loop)
 
         zk.start()
 
-    async def _handle_executor_node_changed(self, path: str) -> None:
+    async def _handle_executor_node_create(self, path: str) -> None:
         zk = self.zk_client
-        stat: Optional[ZnodeStat] = zk.exists(path)
-        if stat:
-            data: bytes
-            data, stat = self.zk_client.get(path)
-            info = ExecutorInfo.FromString(data)
+        loop = asyncio.get_event_loop()
 
-            logger.debug('executor node@%s updated: [%s:%d] status=%s, %s',
-                         path,
-                         info.host,
-                         info.port,
-                         info.status,
-                         stat)
+        await self._create_executor_node(path)
 
-            await self._update_executor_node(path, info)
-        else:
-            logger.debug('executor node@%s removed: %r, %s',
-                         path,
-                         self.executor_nodes[path],
-                         stat)
-            self._remove_executor_node(path)
-
-        await self._notify_executor_node_changed()
+        @zk.DataWatch(path)
+        def node_watcher(data: bytes, stat: ZnodeStat, event: WatchedEvent):
+            logger.debug('executor node changed: path=%r, event=%r, stat=%r', path, event, stat)
+            if event:
+                if event.type == EventType.CHANGED:
+                    info = ExecutorInfo.FromString(data)
+                    asyncio.run_coroutine_threadsafe(self._update_executor_node(path, info), loop)
+                elif event.type == EventType.DELETED:
+                    asyncio.run_coroutine_threadsafe(self._remove_executor_node(path), loop)
 
     async def _notify_executor_node_changed(self):
         async with self.cond_executor_node_changed:
             self.cond_executor_node_changed.notify_all()
 
-    async def _update_executor_node(self, path: str, info: ExecutorInfo):
-        if path not in self.executor_nodes:
-            executor_node = ExecutorNode(info, path)
-            self.executor_nodes[path] = executor_node
-        else:
-            executor_node = self.executor_nodes[path]
-            executor_node.update_info(info)
+    async def _create_executor_node(self, path: str):
+        data: bytes
+        data, stat = self.zk_client.get(path)
+        info = ExecutorInfo.FromString(data)
+        logger.debug('executor node created: path=%r[%s:%d] status=%r, %r',
+                     path,
+                     info.host,
+                     info.port,
+                     info.status,
+                     stat)
+        executor_node = ExecutorNode(info, path)
+        self.executor_nodes[path] = executor_node
 
         message = await executor_node.echo('hi')
         logger.debug("qtask agent received from [%s:%d]: %s",
@@ -163,12 +160,27 @@ class TaskAgent:
                      info.port,
                      message)
 
-        async with self.cond_executor_node_changed:
-            self.cond_executor_node_changed.notify_all()
+        await self._notify_executor_node_changed()
+
+    async def _update_executor_node(self, path: str, info: ExecutorInfo):
+        logger.debug('executor node updated: path=%r[%s:%d] status=%r',
+                     path,
+                     info.host,
+                     info.port,
+                     info.status
+                     )
+        executor_node = self.executor_nodes[path]
+        executor_node.update_info(info)
+
+        await self._notify_executor_node_changed()
 
         self._executor_node_updated.fire(info)
 
-    def _remove_executor_node(self, path: str):
+    async def _remove_executor_node(self, path: str):
+        logger.debug('executor node removed: path=%r, %r',
+                     path,
+                     self.executor_nodes[path]
+                     )
         node = self.executor_nodes[path]
         if node and node.channel:
             node.channel.close()
