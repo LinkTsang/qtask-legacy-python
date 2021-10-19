@@ -5,8 +5,8 @@ import threading
 
 from fastapi import FastAPI
 
-import qtask_ctrld
-from qtask_ctrld import TaskControlDaemon
+import scheduler
+from scheduler import Scheduler
 from schemas import TaskStatusList, TaskInfo
 from store import StoreDB
 from utils import setup_logger, setup_data_dirs
@@ -22,7 +22,7 @@ logger = logging.getLogger('server')
 app = FastAPI()
 
 # task scheduler
-scheduler = TaskControlDaemon(StoreDB())
+task_scheduler = Scheduler(StoreDB())
 
 
 @app.get("/")
@@ -32,7 +32,7 @@ def read_root():
 
 @app.get("/status", response_model=TaskStatusList)
 def get_status() -> TaskStatusList:
-    return scheduler.get_status()
+    return task_scheduler.get_status()
 
 
 @app.get("/tasks/{task_id}")
@@ -42,7 +42,7 @@ def get_task(task_id: int):
 
 @app.post("/tasks")
 def add_task(task: TaskInfo):
-    scheduler.add_task(task)
+    task_scheduler.add_task(task)
     return task
 
 
@@ -60,4 +60,4 @@ else:
 scheduler_loop_thread = threading.Thread(target=run_scheduler_loop, args=(scheduler_loop,), daemon=False)
 scheduler_loop_thread.start()
 
-asyncio.run_coroutine_threadsafe(qtask_ctrld.main(scheduler), scheduler_loop)
+asyncio.run_coroutine_threadsafe(scheduler.main(task_scheduler), scheduler_loop)

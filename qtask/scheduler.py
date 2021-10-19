@@ -16,7 +16,7 @@ from utils import setup_logger, setup_data_dirs
 logger = logging.getLogger('qtask.scheduler')
 
 
-class TaskControlDaemon:
+class Scheduler:
     def __init__(self, store: Store, log_dir: str = config['QTASK_LOGS_DIR'], max_concurrency_tasks=1):
         self.store = store
         self.log_dir = log_dir
@@ -205,7 +205,7 @@ class TaskControlDaemon:
             traceback.print_exception(exc_type, exc_value, exc_traceback)
 
 
-async def main(task_control_daemon: TaskControlDaemon):
+async def main(task_control_daemon: Scheduler):
     print('running task control daemon...')
     logger.info('running task control daemon...')
 
@@ -243,7 +243,7 @@ async def main(task_control_daemon: TaskControlDaemon):
 
 
 if __name__ == "__main__":
-    scheduler = TaskControlDaemon(StoreDB())
+    scheduler = Scheduler(StoreDB())
     setup_data_dirs()
     setup_logger()
     asyncio.run(main(scheduler))
