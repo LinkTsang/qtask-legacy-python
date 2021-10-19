@@ -192,7 +192,8 @@ class TaskControlDaemon:
             logger.debug('task scheduled: name=%r, status=%s, id=%r', task.name, task.status, task.id)
 
             task = await self._agent.schedule_task(task)
-            self.store.update_task(task)
+            if task:
+                self.store.update_task(task)
 
             logger.debug('task done: name=%r, status=%s, id=%r', task.name, task.status, task.id)
 
