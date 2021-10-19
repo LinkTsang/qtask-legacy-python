@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import logging
 from datetime import datetime
@@ -67,12 +68,12 @@ class ExecutorService(ExecutorBase):
 
 
 class ExecutorRpcServer:
-    def __init__(self, executor: Executor):
+    def __init__(self, executor: Executor, grpc_host: str, grpc_port: int):
         executor.task_done.on(self._handle_task_done)
         self.executor_service = ExecutorService(self, executor)
 
-        self.grpc_host = config["QTASK_EXECUTOR_RPC_HOST"]
-        self.grpc_port = config["QTASK_EXECUTOR_RPC_PORT"]
+        self.grpc_host = grpc_host if grpc_host else config["QTASK_EXECUTOR_RPC_HOST"]
+        self.grpc_port = grpc_port if grpc_port else config["QTASK_EXECUTOR_RPC_PORT"]
         self.grpc_address = f'{self.grpc_host}:{self.grpc_port}'
 
         self.zk_hosts = config["QTASK_ZOOKEEPER_HOSTS"]
@@ -121,9 +122,18 @@ class ExecutorRpcServer:
 
 
 def main():
+    parser = argparse.ArgumentParser(description='Executor PRC Service.')
+    parser.add_argument('--host', type=str, default=config["QTASK_EXECUTOR_RPC_HOST"])
+    parser.add_argument('--port', type=int, default=config["QTASK_EXECUTOR_RPC_PORT"])
+    args = parser.parse_args()
+
     setup_logger()
     executor = Executor()
-    rpc_service = ExecutorRpcServer(executor)
+    rpc_service = ExecutorRpcServer(
+        executor,
+        args.host,
+        args.port
+    )
     asyncio.run(rpc_service.run())
 
 
