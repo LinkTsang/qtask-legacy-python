@@ -1,10 +1,10 @@
 syntax = "proto3";
 
-package qtaskd;
+package executor;
 
 import "google/protobuf/timestamp.proto";
 
-service QTaskDaemon {
+service Executor {
   rpc Echo (Request) returns (Reply) {}
   rpc RunTask (TaskDetail) returns (TaskDetail) {}
   rpc GetTask (GetTaskRequest) returns (GetTaskReply) {}

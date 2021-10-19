@@ -9,19 +9,19 @@ from kazoo.client import KazooClient
 from kazoo.protocol.states import KazooState
 
 from qtask.config import config
-from qtask.protos.qtaskd import QTaskDaemonBase, GetTaskReply, Reply, ExecutorInfo, ExecutorInfoStatus, TaskDetail
-from qtask.qtaskd import TaskDaemon
+from qtask.executor import Executor
+from qtask.protos.executor import ExecutorBase, GetTaskReply, Reply, ExecutorInfo, ExecutorInfoStatus, TaskDetail
 from qtask.schemas import TaskInfo
 from qtask.utils import setup_logger
 
 logger = logging.getLogger('qtaskd_rpc')
 
 
-class QTaskDaemonService(QTaskDaemonBase):
+class ExecutorService(ExecutorBase):
 
-    def __init__(self, server: 'TaskDaemonRpcServer', daemon: TaskDaemon):
+    def __init__(self, server: 'ExecutorRpcServer', executor: Executor):
         self.server = server
-        self.daemon = daemon
+        self.executor = executor
 
     async def echo(self, message: str) -> Reply:
         return Reply(message)
@@ -43,7 +43,7 @@ class QTaskDaemonService(QTaskDaemonBase):
         self.server.executor_info.status = ExecutorInfoStatus.BUSY
         self.server.update_node()
 
-        task_info = await self.daemon.run_task(TaskInfo(
+        task_info = await self.executor.run_task(TaskInfo(
             id=id,
             status=status,
             created_at=created_at,
@@ -66,13 +66,13 @@ class QTaskDaemonService(QTaskDaemonBase):
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
 
-class TaskDaemonRpcServer:
-    def __init__(self, daemon: TaskDaemon):
-        daemon.task_done.on(self._handle_task_done)
-        self.task_daemon_service = QTaskDaemonService(self, daemon)
+class ExecutorRpcServer:
+    def __init__(self, executor: Executor):
+        executor.task_done.on(self._handle_task_done)
+        self.executor_service = ExecutorService(self, executor)
 
-        self.grpc_host = config["QTASK_DAEMON_RPC_HOST"]
-        self.grpc_port = config["QTASK_DAEMON_RPC_PORT"]
+        self.grpc_host = config["QTASK_EXECUTOR_RPC_HOST"]
+        self.grpc_port = config["QTASK_EXECUTOR_RPC_PORT"]
         self.grpc_address = f'{self.grpc_host}:{self.grpc_port}'
 
         self.zk_hosts = config["QTASK_ZOOKEEPER_HOSTS"]
@@ -82,7 +82,7 @@ class TaskDaemonRpcServer:
         self.executor_info = ExecutorInfo(host=self.grpc_host, port=self.grpc_port, status=ExecutorInfoStatus.IDLE)
 
     async def run(self):
-        server = Server([self.task_daemon_service])
+        server = Server([self.executor_service])
         await server.start(host=self.grpc_host, port=self.grpc_port)
 
         zk = self.zk_client
@@ -106,8 +106,8 @@ class TaskDaemonRpcServer:
         await server.wait_closed()
 
     def register_rpc_node(self):
-        self.zk_client.ensure_path('/qtask/qtaskd')
-        self._current_zk_node = self.zk_client.create('/qtask/qtaskd/qtask-instance',
+        self.zk_client.ensure_path('/qtask/executor')
+        self._current_zk_node = self.zk_client.create('/qtask/executor/qtask-instance',
                                                       self.executor_info.SerializeToString(),
                                                       ephemeral=True,
                                                       sequence=True)
@@ -122,6 +122,6 @@ class TaskDaemonRpcServer:
 
 if __name__ == '__main__':
     setup_logger()
-    qtaskd = TaskDaemon()
-    rpc_service = TaskDaemonRpcServer(qtaskd)
+    executor = Executor()
+    rpc_service = ExecutorRpcServer(executor)
     asyncio.run(rpc_service.run())

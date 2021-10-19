@@ -1,11 +1,11 @@
 import unittest
 
-from qtask.qtaskd import TaskDaemon
+from qtask.executor import Executor
 from qtask.schemas import TaskInfo, TaskStatus
 from qtask.utils.testing import async_test
 
 
-class TaskDaemonTestCase(unittest.TestCase):
+class ExecutorTestCase(unittest.TestCase):
     @async_test
     async def test_run_task(self):
         dummy_task = TaskInfo(
@@ -28,13 +28,13 @@ class TaskDaemonTestCase(unittest.TestCase):
         def handle_task_failed(task: TaskInfo):
             self.fail(msg='task failed %r' % task)
 
-        task_daemon = TaskDaemon()
-        task_daemon.task_done.on(handle_task_done)
-        task_daemon.task_failed.on(handle_task_failed)
+        executor = Executor()
+        executor.task_done.on(handle_task_done)
+        executor.task_failed.on(handle_task_failed)
 
         self.assertFalse(task_done_flag)
 
-        await task_daemon.run_task(dummy_task)
+        await executor.run_task(dummy_task)
 
         self.assertTrue(task_done_flag)
 

@@ -12,7 +12,7 @@ from qtask.utils import Observable
 logger = logging.getLogger(__name__)
 
 
-class TaskDaemon:
+class Executor:
 
     def __init__(self):
         self.log_dir = config["QTASK_LOGS_DIR"]

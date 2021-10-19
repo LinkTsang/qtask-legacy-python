@@ -7,7 +7,7 @@ from kazoo.client import KazooClient
 from kazoo.protocol.states import KazooState, ZnodeStat
 
 from qtask.config import config
-from qtask.protos.qtaskd import QTaskDaemonStub, ExecutorInfo, ExecutorInfoStatus
+from qtask.protos.executor import ExecutorStub, ExecutorInfo, ExecutorInfoStatus
 from qtask.schemas import TaskInfo, TaskId
 from qtask.utils import Observable, setup_logger
 
@@ -69,11 +69,11 @@ class TaskAgent:
 
             self.zk_last_state = state
 
-        @zk.ChildrenWatch('/qtask/qtaskd')
+        @zk.ChildrenWatch('/qtask/executor')
         def watch_qtaskd_rpc_node(children):
-            logger.info('/qtask/qtaskd children update: %r', children)
+            logger.info('/qtask/executor children update: %r', children)
             for node in children:
-                path = f'/qtask/qtaskd/{node}'
+                path = f'/qtask/executor/{node}'
                 asyncio.run_coroutine_threadsafe(self._handle_executor_node_changed(path), loop)
 
         zk.start()
@@ -86,7 +86,7 @@ class TaskAgent:
             data, stat = zk.get(path)
             executor_info = ExecutorInfo.FromString(data)
 
-            logger.debug('QTaskDaemon node@%s updated: [%s:%d] status=%s, %s',
+            logger.debug('executor node@%s updated: [%s:%d] status=%s, %s',
                          path,
                          executor_info.host,
                          executor_info.port,
@@ -104,7 +104,7 @@ class TaskAgent:
             self._executor_node_updated.fire(executor_info)
         else:
             address = self.executor_nodes[path]
-            logger.debug(f'QTaskDaemon node@%s removed: %r, %s', path, address, stat)
+            logger.debug(f'executor node@%s removed: %r, %s', path, address, stat)
             del self.executor_nodes[path]
 
             self._executor_node_removed.fire(address)
@@ -121,7 +121,7 @@ class TaskAgent:
     @staticmethod
     async def _echo(executor_info: ExecutorInfo) -> str:
         async with Channel(host=executor_info.host, port=executor_info.port) as channel:
-            stub = QTaskDaemonStub(channel)
+            stub = ExecutorStub(channel)
             response = await stub.echo(message='hi')
         return response.message
 
@@ -131,7 +131,7 @@ class TaskAgent:
             raise RuntimeError('Not available executor nodes!')
         idle_executor_node.status = ExecutorInfoStatus.BUSY
         async with Channel(host=idle_executor_node.host, port=idle_executor_node.port) as channel:
-            stub = QTaskDaemonStub(channel)
+            stub = ExecutorStub(channel)
             response = await stub.run_task(**task.dict())
         return TaskInfo(**response.to_dict())
 
