@@ -8,3 +8,4 @@ kazoo~=2.8.0
 grpcio~=1.35.0
 grpcio-tools~=1.35.0
 betterproto[compiler]~=2.0.0b3
+grpclib~=0.4.2
