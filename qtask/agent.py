@@ -105,7 +105,7 @@ class TaskAgent:
             self._executor_node_updated.fire(executor_info)
         else:
             address = self.executor_nodes[path]
-            logger.debug(f'executor node@%s removed: %r, %s', path, address, stat)
+            logger.debug('executor node@%s removed: %r, %s', path, address, stat)
             del self.executor_nodes[path]
 
             self._executor_node_removed.fire(address)
