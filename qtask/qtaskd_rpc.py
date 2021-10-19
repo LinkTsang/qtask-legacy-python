@@ -39,7 +39,7 @@ class QTaskDaemonService(QTaskDaemonBase):
             working_dir: str,
             command_line: str,
             output_file_path: str,
-    ) -> Reply:
+    ) -> TaskDetail:
         self.server.executor_info.status = ExecutorInfoStatus.BUSY
         self.server.update_node()
 
@@ -60,7 +60,7 @@ class QTaskDaemonService(QTaskDaemonBase):
         self.server.executor_info.status = ExecutorInfoStatus.IDLE
         self.server.update_node()
 
-        return TaskDetail.from_dict(**task_info.dict())
+        return TaskDetail(**task_info.dict())
 
     async def get_task(self) -> GetTaskReply:
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
