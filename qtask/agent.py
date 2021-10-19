@@ -113,11 +113,17 @@ class TaskAgent:
         async with self.cond_executor_node_changed:
             self.cond_executor_node_changed.notify_all()
 
-    def _get_idle_executor_node(self) -> Optional[ExecutorInfo]:
+    def _acquire_idle_executor_node(self) -> Optional[ExecutorInfo]:
         for node in self.executor_nodes.values():
             if node.status == ExecutorInfoStatus.IDLE:
+                node.status = ExecutorInfoStatus.BUSY
                 return node
         return None
+
+    async def _release_executor_node(self, executor_node: ExecutorInfo):
+        executor_node.status = ExecutorInfoStatus.IDLE
+        async with self.cond_executor_node_changed:
+            self.cond_executor_node_changed.notify_all()
 
     @staticmethod
     async def _echo(executor_info: ExecutorInfo) -> str:
@@ -127,14 +133,16 @@ class TaskAgent:
         return response.message
 
     async def schedule_task(self, task: TaskInfo) -> TaskInfo:
-        idle_executor_node = self._get_idle_executor_node()
-        if not idle_executor_node:
+        executor_node = self._acquire_idle_executor_node()
+        if not executor_node:
             raise RuntimeError('Not available executor nodes!')
-        idle_executor_node.status = ExecutorInfoStatus.BUSY
-        async with Channel(host=idle_executor_node.host, port=idle_executor_node.port) as channel:
-            stub = ExecutorStub(channel)
-            response = await stub.run_task(**task.dict())
-        return TaskInfo(**response.to_dict(casing=Casing.SNAKE))
+        try:
+            async with Channel(host=executor_node.host, port=executor_node.port) as channel:
+                stub = ExecutorStub(channel)
+                response = await stub.run_task(**task.dict())
+            return TaskInfo(**response.to_dict(casing=Casing.SNAKE))
+        finally:
+            await self._release_executor_node(executor_node)
 
     async def get_task_status(self, task_id: TaskId):
         raise NotImplementedError('Method not implemented!')
