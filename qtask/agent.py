@@ -100,6 +100,7 @@ class TaskAgent:
 
         @zk.add_listener
         def zk_listener(state: KazooState):
+            # NOTE: running in zookeeper worker thread
             if state == KazooState.LOST:
                 logger.info('zookeeper state changed: %s', state)
             elif state == KazooState.SUSPENDED:
@@ -113,6 +114,7 @@ class TaskAgent:
 
         @zk.ChildrenWatch('/qtask/executor')
         def watch_qtaskd_rpc_node(children):
+            # NOTE: running in zookeeper worker thread
             logger.info('/qtask/executor children update: %r', children)
             for node in children:
                 path = f'/qtask/executor/{node}'
@@ -129,6 +131,7 @@ class TaskAgent:
 
         @zk.DataWatch(path)
         def node_watcher(data: bytes, stat: ZnodeStat, event: WatchedEvent):
+            # NOTE: running in zookeeper worker thread
             logger.debug('executor node changed: path=%r, event=%r, stat=%r', path, event, stat)
             if event:
                 if event.type == EventType.CHANGED:
