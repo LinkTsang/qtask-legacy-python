@@ -148,7 +148,7 @@ class TaskAgent:
         raise NotImplementedError('Method not implemented!')
 
 
-if __name__ == '__main__':
+def main():
     setup_logger()
 
     agent = TaskAgent()
@@ -156,3 +156,7 @@ if __name__ == '__main__':
     agent.start()
     loop.run_forever()
     print('exited.')
+
+
+if __name__ == '__main__':
+    main()

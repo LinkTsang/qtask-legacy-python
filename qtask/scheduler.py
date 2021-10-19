@@ -210,6 +210,9 @@ async def main(task_control_daemon: Scheduler):
     logger.info('running task control daemon...')
 
     try:
+        setup_data_dirs()
+        setup_logger()
+
         demo_tasks: List[TaskInfo] = [
             TaskInfo(
                 name="6s task",
@@ -243,7 +246,4 @@ async def main(task_control_daemon: Scheduler):
 
 
 if __name__ == "__main__":
-    scheduler = Scheduler(StoreDB())
-    setup_data_dirs()
-    setup_logger()
-    asyncio.run(main(scheduler))
+    asyncio.run(main(Scheduler(StoreDB())))

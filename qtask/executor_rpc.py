@@ -120,8 +120,12 @@ class ExecutorRpcServer:
         pass
 
 
-if __name__ == '__main__':
+def main():
     setup_logger()
     executor = Executor()
     rpc_service = ExecutorRpcServer(executor)
     asyncio.run(rpc_service.run())
+
+
+if __name__ == '__main__':
+    main()
