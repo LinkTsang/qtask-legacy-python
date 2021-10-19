@@ -116,7 +116,7 @@ class TaskDaemonRpcServer:
     def update_node(self):
         self.zk_client.set(self._current_zk_node, self.executor_info.SerializeToString())
 
-    def _handle_task_done(self):
+    def _handle_task_done(self, task: TaskInfo):
         pass
 
 
