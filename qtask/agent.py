@@ -2,6 +2,7 @@ import asyncio
 import logging
 from typing import Optional, Dict
 
+from betterproto import Casing
 from grpclib.client import Channel
 from kazoo.client import KazooClient
 from kazoo.protocol.states import KazooState, ZnodeStat
@@ -133,7 +134,7 @@ class TaskAgent:
         async with Channel(host=idle_executor_node.host, port=idle_executor_node.port) as channel:
             stub = ExecutorStub(channel)
             response = await stub.run_task(**task.dict())
-        return TaskInfo(**response.to_dict())
+        return TaskInfo(**response.to_dict(casing=Casing.SNAKE))
 
     async def get_task_status(self, task_id: TaskId):
         raise NotImplementedError('Method not implemented!')
