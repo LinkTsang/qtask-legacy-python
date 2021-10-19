@@ -15,6 +15,47 @@ from qtask.utils import Observable, setup_logger
 logger = logging.getLogger('qtask.agent')
 
 
+class ExecutorNode:
+
+    def __init__(self, info: ExecutorInfo, zk_node_path: str, channel: Channel = None):
+        self.host: str = info.host
+        self.port: int = info.port
+        self.status: ExecutorInfoStatus = info.status
+
+        self.zk_node_path: str = zk_node_path
+
+        if not channel:
+            channel = Channel(host=self.host, port=self.port)
+        self.channel: Channel = channel
+        self.stub: ExecutorStub = ExecutorStub(channel)
+
+    async def echo(self, message: str) -> str:
+        response = await self.stub.echo(message=message)
+        return response.message
+
+    async def schedule_task(self, task: TaskInfo) -> TaskInfo:
+        response = await self.stub.run_task(**task.dict())
+        return TaskInfo(**response.to_dict(casing=Casing.SNAKE))
+
+    def update_info(self, info: ExecutorInfo):
+        if self.host != info.host or self.port != info.port:
+            if self.channel:
+                self.channel.close()
+            self.channel = Channel(host=self.host, port=self.port)
+            self.stub = ExecutorStub(self.channel)
+
+            self.host = info.host
+            self.port = info.port
+
+        self.status: ExecutorInfoStatus = info.status
+
+    def info(self):
+        return ExecutorInfo(self.host, self.port, self.status)
+
+    def close(self):
+        self.channel.close()
+
+
 class TaskAgent:
     def __init__(self):
         self.zk_hosts = config["QTASK_ZOOKEEPER_HOSTS"]
@@ -29,7 +70,7 @@ class TaskAgent:
         self._executor_node_updated = Observable()
         self._executor_node_removed = Observable()
 
-        self.executor_nodes: Dict[str, ExecutorInfo] = {}
+        self.executor_nodes: Dict[str, ExecutorNode] = {}
 
     @property
     def task_done(self) -> Observable:
@@ -84,65 +125,76 @@ class TaskAgent:
         stat: Optional[ZnodeStat] = zk.exists(path)
         if stat:
             data: bytes
-            data, stat = zk.get(path)
-            executor_info = ExecutorInfo.FromString(data)
+            data, stat = self.zk_client.get(path)
+            info = ExecutorInfo.FromString(data)
 
             logger.debug('executor node@%s updated: [%s:%d] status=%s, %s',
                          path,
-                         executor_info.host,
-                         executor_info.port,
-                         executor_info.status,
+                         info.host,
+                         info.port,
+                         info.status,
                          stat)
 
-            self.executor_nodes[path] = executor_info
-
-            message = await self._echo(executor_info)
-            logger.debug("qtask agent received from [%s:%d]: %s",
-                         executor_info.host,
-                         executor_info.port,
-                         message)
-
-            self._executor_node_updated.fire(executor_info)
+            await self._update_executor_node(path, info)
         else:
-            address = self.executor_nodes[path]
-            logger.debug('executor node@%s removed: %r, %s', path, address, stat)
-            del self.executor_nodes[path]
+            logger.debug('executor node@%s removed: %r, %s',
+                         path,
+                         self.executor_nodes[path],
+                         stat)
+            self._remove_executor_node(path)
 
-            self._executor_node_removed.fire(address)
+        await self._notify_executor_node_changed()
+
+    async def _notify_executor_node_changed(self):
+        async with self.cond_executor_node_changed:
+            self.cond_executor_node_changed.notify_all()
+
+    async def _update_executor_node(self, path: str, info: ExecutorInfo):
+        if path not in self.executor_nodes:
+            executor_node = ExecutorNode(info, path)
+            self.executor_nodes[path] = executor_node
+        else:
+            executor_node = self.executor_nodes[path]
+            executor_node.update_info(info)
+
+        message = await executor_node.echo('hi')
+        logger.debug("qtask agent received from [%s:%d]: %s",
+                     info.host,
+                     info.port,
+                     message)
 
         async with self.cond_executor_node_changed:
             self.cond_executor_node_changed.notify_all()
 
-    def _acquire_idle_executor_node(self) -> Optional[ExecutorInfo]:
+        self._executor_node_updated.fire(info)
+
+    def _remove_executor_node(self, path: str):
+        node = self.executor_nodes[path]
+        if node and node.channel:
+            node.channel.close()
+        self._executor_node_removed.fire(node)
+        if node:
+            del self.executor_nodes[path]
+
+    def _acquire_idle_executor_node(self) -> Optional[ExecutorNode]:
         for node in self.executor_nodes.values():
             if node.status == ExecutorInfoStatus.IDLE:
-                node.status = ExecutorInfoStatus.BUSY
                 return node
         return None
 
-    async def _release_executor_node(self, executor_node: ExecutorInfo):
+    async def _release_executor_node(self, executor_node: ExecutorNode) -> None:
         executor_node.status = ExecutorInfoStatus.IDLE
         async with self.cond_executor_node_changed:
             self.cond_executor_node_changed.notify_all()
-
-    @staticmethod
-    async def _echo(executor_info: ExecutorInfo) -> str:
-        async with Channel(host=executor_info.host, port=executor_info.port) as channel:
-            stub = ExecutorStub(channel)
-            response = await stub.echo(message='hi')
-        return response.message
 
     async def schedule_task(self, task: TaskInfo) -> TaskInfo:
         executor_node = self._acquire_idle_executor_node()
         if not executor_node:
             raise RuntimeError('Not available executor nodes!')
         try:
-            async with Channel(host=executor_node.host, port=executor_node.port) as channel:
-                stub = ExecutorStub(channel)
-                response = await stub.run_task(**task.dict())
-            return TaskInfo(**response.to_dict(casing=Casing.SNAKE))
+            return await executor_node.schedule_task(task)
         finally:
-            await self._release_executor_node(executor_node)
+            await self._notify_executor_node_changed()
 
     async def get_task_status(self, task_id: TaskId):
         raise NotImplementedError('Method not implemented!')
