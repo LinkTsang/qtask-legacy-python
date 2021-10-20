@@ -41,8 +41,8 @@ def get_task(task_id: int):
 
 
 @app.post("/tasks")
-def add_task(task: TaskInfo):
-    task_scheduler.add_task(task)
+async def add_task(task: TaskInfo):
+    asyncio.run_coroutine_threadsafe(task_scheduler.add_task(task), scheduler_loop)
     return task
 
 
