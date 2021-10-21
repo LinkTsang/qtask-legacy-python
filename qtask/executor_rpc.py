@@ -68,7 +68,8 @@ class ExecutorService(ExecutorBase):
 
 
 class ExecutorRpcServer:
-    def __init__(self, executor: Executor, grpc_host: str, grpc_port: int):
+    def __init__(self, grpc_host: str, grpc_port: int):
+        executor = Executor()
         executor.task_done.on(self._handle_task_done)
         self.executor_service = ExecutorService(self, executor)
 
@@ -128,9 +129,7 @@ def main():
     args = parser.parse_args()
 
     setup_logger()
-    executor = Executor()
     rpc_service = ExecutorRpcServer(
-        executor,
         args.host,
         args.port
     )
