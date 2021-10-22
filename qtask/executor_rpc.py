@@ -122,7 +122,7 @@ class ExecutorRpcServer:
         pass
 
 
-def main():
+async def main():
     parser = argparse.ArgumentParser(description='Executor PRC Service.')
     parser.add_argument('--host', type=str, default=config["QTASK_EXECUTOR_RPC_HOST"])
     parser.add_argument('--port', type=int, default=config["QTASK_EXECUTOR_RPC_PORT"])
@@ -133,8 +133,8 @@ def main():
         args.host,
         args.port
     )
-    asyncio.run(rpc_service.run())
+    await rpc_service.run()
 
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
