@@ -120,7 +120,7 @@ class ExecutorRpcServer:
             elif state == KazooState.CONNECTED:
                 print('zookeeper state:', state)
             else:
-                logger.error('unknown zookeeper state:', state)
+                logger.error('unknown zookeeper state: %s', state)
 
             self.zk_last_state = state
 
