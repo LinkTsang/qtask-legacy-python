@@ -1,12 +1,12 @@
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Optional, TypeVar, TypedDict, List
+from typing import Optional, TypedDict, List
 
 from pydantic import BaseModel, Field
 from pydantic.utils import to_camel
 
-TaskId = TypeVar('TaskId', bound=str)
+TaskId = str
 
 
 class TaskStatus(str, Enum):
