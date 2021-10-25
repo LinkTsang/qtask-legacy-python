@@ -3,16 +3,21 @@
 # plugin: python-betterproto
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict
+from typing import AsyncIterator, Dict
 
 import betterproto
 import grpclib
 from betterproto.grpc.grpclib_server import ServiceBase
 
 
-class ExecutorInfoStatus(betterproto.Enum):
+class ExecutorStatus(betterproto.Enum):
     IDLE = 0
     BUSY = 1
+
+
+@dataclass(eq=False, repr=False)
+class WatchResponse(betterproto.Message):
+    status: "ExecutorStatus" = betterproto.enum_field(1)
 
 
 @dataclass(eq=False, repr=False)
@@ -55,7 +60,6 @@ class GetTaskReply(betterproto.Message):
 class ExecutorInfo(betterproto.Message):
     host: str = betterproto.string_field(1)
     port: int = betterproto.int32_field(2)
-    status: "ExecutorInfoStatus" = betterproto.enum_field(3)
 
 
 class ExecutorStub(betterproto.ServiceStub):
@@ -65,6 +69,17 @@ class ExecutorStub(betterproto.ServiceStub):
         request.message = message
 
         return await self._unary_unary("/executor.Executor/Echo", request, Reply)
+
+    async def watch(self) -> AsyncIterator["WatchResponse"]:
+
+        request = betterproto_lib_google_protobuf.Empty()
+
+        async for response in self._unary_stream(
+                "/executor.Executor/Watch",
+                request,
+                WatchResponse,
+        ):
+            yield response
 
     async def run_task(
             self,
@@ -116,6 +131,9 @@ class ExecutorBase(ServiceBase):
     async def echo(self, message: str) -> "Reply":
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
+    async def watch(self) -> AsyncIterator["WatchResponse"]:
+        raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
+
     async def run_task(
             self,
             id: str,
@@ -144,6 +162,17 @@ class ExecutorBase(ServiceBase):
 
         response = await self.echo(**request_kwargs)
         await stream.send_message(response)
+
+    async def __rpc_watch(self, stream: grpclib.server.Stream) -> None:
+        request = await stream.recv_message()
+
+        request_kwargs = {}
+
+        await self._call_rpc_handler_server_stream(
+            self.watch,
+            stream,
+            request_kwargs,
+        )
 
     async def __rpc_run_task(self, stream: grpclib.server.Stream) -> None:
         request = await stream.recv_message()
@@ -181,6 +210,12 @@ class ExecutorBase(ServiceBase):
                 Request,
                 Reply,
             ),
+            "/executor.Executor/Watch": grpclib.const.Handler(
+                self.__rpc_watch,
+                grpclib.const.Cardinality.UNARY_STREAM,
+                betterproto_lib_google_protobuf.Empty,
+                WatchResponse,
+            ),
             "/executor.Executor/RunTask": grpclib.const.Handler(
                 self.__rpc_run_task,
                 grpclib.const.Cardinality.UNARY_UNARY,
@@ -194,3 +229,6 @@ class ExecutorBase(ServiceBase):
                 GetTaskReply,
             ),
         }
+
+
+import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf

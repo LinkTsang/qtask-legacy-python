@@ -3,9 +3,20 @@ syntax = "proto3";
 package executor;
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+enum ExecutorStatus {
+  IDLE = 0;
+  BUSY = 1;
+}
+
+message WatchResponse {
+  ExecutorStatus status = 1;
+}
 
 service Executor {
   rpc Echo (Request) returns (Reply) {}
+  rpc Watch (google.protobuf.Empty) returns (stream WatchResponse) {}
   rpc RunTask (TaskDetail) returns (TaskDetail) {}
   rpc GetTask (GetTaskRequest) returns (GetTaskReply) {}
 }
@@ -49,9 +60,4 @@ message GetTaskReply {
 message ExecutorInfo {
   string host = 1;
   int32 port = 2;
-  enum Status {
-    IDLE = 0;
-    BUSY = 1;
-  }
-  Status status = 3;
 }

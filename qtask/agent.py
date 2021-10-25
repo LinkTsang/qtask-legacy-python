@@ -1,37 +1,60 @@
 import asyncio
 import logging
-from typing import Optional, Dict
+from typing import Optional, Dict, Set, AsyncIterator
 
-from betterproto import Casing
+from betterproto import Casing, Enum
 from grpclib.client import Channel
 from kazoo.client import KazooClient
 from kazoo.protocol.states import KazooState, ZnodeStat, WatchedEvent, EventType
 
 from qtask.config import config
-from qtask.protos.executor import ExecutorStub, ExecutorInfo, ExecutorInfoStatus
+from qtask.protos.executor import ExecutorStub, ExecutorInfo, ExecutorStatus
 from qtask.schemas import TaskInfo, TaskId
-from qtask.utils import Observable, setup_logger
+from qtask.utils import setup_logger
 
 logger = logging.getLogger('qtask.agent')
 
 
+class ExecutorNodeStatus(Enum):
+    UNKNOWN = -1
+    IDLE = 0
+    BUSY = 1
+    TERMINATED = 2
+
+
 class ExecutorNode:
 
-    def __init__(self, info: ExecutorInfo, zk_node_path: str, channel: Channel = None):
+    def __init__(self, info: ExecutorInfo, zk_node_path: str):
+        self.status: ExecutorNodeStatus = ExecutorNodeStatus.UNKNOWN
         self.host: str = info.host
         self.port: int = info.port
-        self.status: ExecutorInfoStatus = info.status
 
         self.zk_node_path: str = zk_node_path
 
-        if not channel:
-            channel = Channel(host=self.host, port=self.port)
-        self.channel: Channel = channel
-        self.stub: ExecutorStub = ExecutorStub(channel)
+        self.channel: Channel = Channel(host=self.host, port=self.port)
+        self.stub: ExecutorStub = ExecutorStub(self.channel)
 
     async def echo(self, message: str) -> str:
         response = await self.stub.echo(message=message)
         return response.message
+
+    async def watch(self) -> AsyncIterator[ExecutorNodeStatus]:
+        try:
+            async for response in self.stub.watch():
+                if response.status == ExecutorStatus.IDLE:
+                    self.status = ExecutorNodeStatus.IDLE
+                elif response.status == ExecutorStatus.BUSY:
+                    self.status = ExecutorNodeStatus.BUSY
+                logger.debug(f'status={self.status.name}')
+                yield self.status
+        except Exception:
+            logger.exception('executor node exception: path=[%s:%d] status=%r',
+                             self.host,
+                             self.port,
+                             self.status
+                             )
+        self.status = ExecutorNodeStatus.TERMINATED
+        yield self.status
 
     async def schedule_task(self, task: TaskInfo) -> TaskInfo:
         response = await self.stub.run_task(**task.dict())
@@ -47,10 +70,8 @@ class ExecutorNode:
             self.host = info.host
             self.port = info.port
 
-        self.status: ExecutorInfoStatus = info.status
-
-    def info(self):
-        return ExecutorInfo(self.host, self.port, self.status)
+    def info(self) -> ExecutorInfo:
+        return ExecutorInfo(self.host, self.port)
 
     def close(self):
         self.channel.close()
@@ -65,32 +86,13 @@ class TaskAgent:
 
         self.cond_executor_node_changed = asyncio.Condition()
 
-        self._task_done = Observable()
-        self._task_failed = Observable()
-        self._executor_node_updated = Observable()
-        self._executor_node_removed = Observable()
-
         self.executor_nodes: Dict[str, ExecutorNode] = {}
 
-    @property
-    def task_done(self) -> Observable:
-        return self._task_done
-
-    @property
-    def task_failed(self) -> Observable:
-        return self._task_failed
-
-    @property
-    def executor_updated(self) -> Observable:
-        return self._executor_node_updated
-
-    @property
-    def executor_removed(self) -> Observable:
-        return self._executor_node_removed
+        self._executor_node_watching_tasks: Set[asyncio.Task] = set()
 
     def is_any_executor_idle(self) -> bool:
         for node in self.executor_nodes.values():
-            if node.status == ExecutorInfoStatus.IDLE:
+            if node.status == ExecutorStatus.IDLE:
                 return True
         return False
 
@@ -119,11 +121,11 @@ class TaskAgent:
             for node in children:
                 path = f'/qtask/executor/{node}'
                 if path not in self.executor_nodes:
-                    asyncio.run_coroutine_threadsafe(self._handle_executor_node_create(path), loop)
+                    asyncio.run_coroutine_threadsafe(self._handle_executor_node_created(path), loop)
 
         zk.start()
 
-    async def _handle_executor_node_create(self, path: str) -> None:
+    async def _handle_executor_node_created(self, path: str) -> None:
         zk = self.zk_client
         loop = asyncio.get_event_loop()
 
@@ -136,11 +138,11 @@ class TaskAgent:
             if event:
                 if event.type == EventType.CHANGED:
                     info = ExecutorInfo.FromString(data)
-                    asyncio.run_coroutine_threadsafe(self._update_executor_node(path, info), loop)
+                    asyncio.run_coroutine_threadsafe(self._handle_executor_node_updated(path, info), loop)
                 elif event.type == EventType.DELETED:
-                    asyncio.run_coroutine_threadsafe(self._remove_executor_node(path), loop)
+                    asyncio.run_coroutine_threadsafe(self._handle_executor_node_removed(path), loop)
 
-    async def _notify_executor_node_changed(self):
+    async def _notify_executor_node_changed(self) -> None:
         async with self.cond_executor_node_changed:
             self.cond_executor_node_changed.notify_all()
 
@@ -148,68 +150,56 @@ class TaskAgent:
         data: bytes
         data, stat = self.zk_client.get(path)
         info = ExecutorInfo.FromString(data)
-        logger.debug('executor node created: path=%r[%s:%d] status=%r, %r',
+        logger.debug('executor node created: path=%r[%s:%d] %r',
                      path,
                      info.host,
                      info.port,
-                     info.status,
                      stat)
         executor_node = ExecutorNode(info, path)
         self.executor_nodes[path] = executor_node
 
-        message = await executor_node.echo('hi')
-        logger.debug("qtask agent received from [%s:%d]: %s",
-                     info.host,
-                     info.port,
-                     message)
+        task = asyncio.create_task(self._watch_executor_node(executor_node))
+        self._executor_node_watching_tasks.add(task)
+        task.add_done_callback(self._executor_node_watching_tasks.remove)
 
-        await self._notify_executor_node_changed()
+    async def _watch_executor_node(self, node: ExecutorNode) -> None:
+        async for status in node.watch():
+            logger.debug('executor node updated: path=[%s:%d] status=%r',
+                         node.host,
+                         node.port,
+                         status.name)
+            await self._notify_executor_node_changed()
 
-    async def _update_executor_node(self, path: str, info: ExecutorInfo):
-        logger.debug('executor node updated: path=%r[%s:%d] status=%r',
+    async def _handle_executor_node_updated(self, path: str, info: ExecutorInfo):
+        logger.debug('executor node updated: path=%r[%s:%d]',
                      path,
                      info.host,
-                     info.port,
-                     info.status
+                     info.port
                      )
         executor_node = self.executor_nodes[path]
         executor_node.update_info(info)
 
-        await self._notify_executor_node_changed()
-
-        self._executor_node_updated.fire(info)
-
-    async def _remove_executor_node(self, path: str):
+    async def _handle_executor_node_removed(self, path: str):
         logger.debug('executor node removed: path=%r, %r',
                      path,
                      self.executor_nodes[path]
                      )
         node = self.executor_nodes[path]
-        if node and node.channel:
-            node.channel.close()
-        self._executor_node_removed.fire(node)
-        if node:
-            del self.executor_nodes[path]
+        node.close()
+        del self.executor_nodes[path]
 
     def _acquire_idle_executor_node(self) -> Optional[ExecutorNode]:
         for node in self.executor_nodes.values():
-            if node.status == ExecutorInfoStatus.IDLE:
+            if node.status == ExecutorStatus.IDLE:
                 return node
         return None
-
-    async def _release_executor_node(self, executor_node: ExecutorNode) -> None:
-        executor_node.status = ExecutorInfoStatus.IDLE
-        async with self.cond_executor_node_changed:
-            self.cond_executor_node_changed.notify_all()
 
     async def schedule_task(self, task: TaskInfo) -> TaskInfo:
         executor_node = self._acquire_idle_executor_node()
         if not executor_node:
             raise RuntimeError('Not available executor nodes!')
-        try:
-            return await executor_node.schedule_task(task)
-        finally:
-            await self._notify_executor_node_changed()
+        task = await executor_node.schedule_task(task)
+        return task
 
     async def get_task_status(self, task_id: TaskId):
         raise NotImplementedError('Method not implemented!')

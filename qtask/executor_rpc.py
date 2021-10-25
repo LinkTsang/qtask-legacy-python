@@ -2,7 +2,7 @@ import argparse
 import asyncio
 import logging
 from datetime import datetime
-from typing import Optional
+from typing import Optional, AsyncIterator
 
 import grpclib
 from grpclib.server import Server
@@ -11,7 +11,15 @@ from kazoo.protocol.states import KazooState
 
 from qtask.config import config
 from qtask.executor import Executor
-from qtask.protos.executor import ExecutorBase, GetTaskReply, Reply, ExecutorInfo, ExecutorInfoStatus, TaskDetail
+from qtask.protos.executor import (
+    ExecutorBase,
+    GetTaskReply,
+    Reply,
+    ExecutorInfo,
+    TaskDetail,
+    WatchResponse,
+    ExecutorStatus
+)
 from qtask.schemas import TaskInfo
 from qtask.utils import setup_logger
 
@@ -20,12 +28,30 @@ logger = logging.getLogger('qtaskd_rpc')
 
 class ExecutorService(ExecutorBase):
 
-    def __init__(self, server: 'ExecutorRpcServer', executor: Executor):
-        self.server = server
-        self.executor = executor
+    def __init__(self):
+        self.executor: Executor = Executor()
+
+        self.status: ExecutorStatus = ExecutorStatus.IDLE
+        self.status_condition = asyncio.Condition()
 
     async def echo(self, message: str) -> Reply:
         return Reply(message)
+
+    async def watch(self) -> AsyncIterator[WatchResponse]:
+        try:
+            while True:
+                logger.debug('status=%s', self.status.name)
+                yield WatchResponse(status=self.status)
+                async with self.status_condition:
+                    await self.status_condition.wait()
+        except Exception:
+            logger.exception('exception in `watch`')
+            raise
+
+    async def _update_status(self, status: ExecutorStatus) -> None:
+        async with self.status_condition:
+            self.status = status
+            self.status_condition.notify_all()
 
     async def run_task(
             self,
@@ -41,8 +67,7 @@ class ExecutorService(ExecutorBase):
             command_line: str,
             output_file_path: str,
     ) -> TaskDetail:
-        self.server.executor_info.status = ExecutorInfoStatus.BUSY
-        self.server.update_node()
+        await self._update_status(ExecutorStatus.BUSY)
 
         task_info = await self.executor.run_task(TaskInfo(
             id=id,
@@ -58,8 +83,7 @@ class ExecutorService(ExecutorBase):
             output_file_path=output_file_path,
         ))
 
-        self.server.executor_info.status = ExecutorInfoStatus.IDLE
-        self.server.update_node()
+        await self._update_status(ExecutorStatus.IDLE)
 
         return TaskDetail(**task_info.dict())
 
@@ -69,9 +93,7 @@ class ExecutorService(ExecutorBase):
 
 class ExecutorRpcServer:
     def __init__(self, grpc_host: str, grpc_port: int):
-        executor = Executor()
-        executor.task_done.on(self._handle_task_done)
-        self.executor_service = ExecutorService(self, executor)
+        self.executor_service = ExecutorService()
 
         self.grpc_host = grpc_host if grpc_host else config["QTASK_EXECUTOR_RPC_HOST"]
         self.grpc_port = grpc_port if grpc_port else config["QTASK_EXECUTOR_RPC_PORT"]
@@ -81,7 +103,7 @@ class ExecutorRpcServer:
         self.zk_client = KazooClient(hosts=self.zk_hosts)
         self.zk_last_state = KazooState.LOST
         self._current_zk_node: Optional[str] = None
-        self.executor_info = ExecutorInfo(host=self.grpc_host, port=self.grpc_port, status=ExecutorInfoStatus.IDLE)
+        self.executor_info = ExecutorInfo(host=self.grpc_host, port=self.grpc_port)
 
     async def run(self):
         server = Server([self.executor_service])
@@ -114,12 +136,6 @@ class ExecutorRpcServer:
                                                       ephemeral=True,
                                                       sequence=True)
         logger.info('register rpc node: %s', self._current_zk_node)
-
-    def update_node(self):
-        self.zk_client.set(self._current_zk_node, self.executor_info.SerializeToString())
-
-    def _handle_task_done(self, task: TaskInfo):
-        pass
 
 
 async def main():
