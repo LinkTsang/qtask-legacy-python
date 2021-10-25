@@ -21,6 +21,8 @@ class TaskStatus(str, Enum):
     DETACHED = "DETACHED"
     ERROR = "ERROR"
 
+    NOT_EXIST = "NOT_EXIST"
+
 
 class TaskInfo(BaseModel):
     id: TaskId = Field(default_factory=lambda: str(uuid.uuid4()))
