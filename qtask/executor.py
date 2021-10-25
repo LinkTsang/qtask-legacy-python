@@ -22,15 +22,15 @@ class Executor:
 
         self._status: ExecutorStatus = ExecutorStatus.IDLE
 
-        self._task_done = Observable()
-        self._task_failed = Observable()
+        self._task_done = Observable[TaskInfo]()
+        self._task_failed = Observable[TaskInfo]()
 
     @property
-    def task_done(self) -> Observable:
+    def task_done(self) -> Observable[TaskInfo]:
         return self._task_done
 
     @property
-    def task_failed(self) -> Observable:
+    def task_failed(self) -> Observable[TaskInfo]:
         return self._task_failed
 
     @property
