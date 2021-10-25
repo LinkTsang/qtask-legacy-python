@@ -30,7 +30,7 @@ message Reply {
 }
 
 message TaskDetail {
-  string id = 1;
+  string task_id = 1;
 
   string status = 2;
 
@@ -52,7 +52,7 @@ message GetTaskRequest {
 }
 
 message GetTaskReply {
-  string id = 1;
+  string task_id = 1;
   string status = 2;
 }
 

@@ -55,7 +55,7 @@ class ExecutorService(ExecutorBase):
 
     async def run_task(
             self,
-            id: str,
+            task_id: str,
             status: str,
             created_at: datetime,
             started_at: datetime,
@@ -70,7 +70,7 @@ class ExecutorService(ExecutorBase):
         await self._update_status(ExecutorStatus.BUSY)
 
         task_info = await self.executor.run_task(TaskInfo(
-            id=id,
+            id=task_id,
             status=status,
             created_at=created_at,
             started_at=started_at,

@@ -32,7 +32,7 @@ class Reply(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class TaskDetail(betterproto.Message):
-    id: str = betterproto.string_field(1)
+    task_id: str = betterproto.string_field(1)
     status: str = betterproto.string_field(2)
     created_at: datetime = betterproto.message_field(3)
     started_at: datetime = betterproto.message_field(4)
@@ -52,7 +52,7 @@ class GetTaskRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class GetTaskReply(betterproto.Message):
-    id: str = betterproto.string_field(1)
+    task_id: str = betterproto.string_field(1)
     status: str = betterproto.string_field(2)
 
 
@@ -84,7 +84,7 @@ class ExecutorStub(betterproto.ServiceStub):
     async def run_task(
             self,
             *,
-            id: str = "",
+            task_id: str = "",
             status: str = "",
             created_at: datetime = None,
             started_at: datetime = None,
@@ -98,7 +98,7 @@ class ExecutorStub(betterproto.ServiceStub):
     ) -> "TaskDetail":
 
         request = TaskDetail()
-        request.id = id
+        request.task_id = task_id
         request.status = status
         if created_at is not None:
             request.created_at = created_at
@@ -136,7 +136,7 @@ class ExecutorBase(ServiceBase):
 
     async def run_task(
             self,
-            id: str,
+            task_id: str,
             status: str,
             created_at: datetime,
             started_at: datetime,
@@ -178,7 +178,7 @@ class ExecutorBase(ServiceBase):
         request = await stream.recv_message()
 
         request_kwargs = {
-            "id": request.id,
+            "task_id": request.task_id,
             "status": request.status,
             "created_at": request.created_at,
             "started_at": request.started_at,
