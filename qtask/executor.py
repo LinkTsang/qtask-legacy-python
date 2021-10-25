@@ -3,9 +3,11 @@ import logging
 import os
 from datetime import datetime
 from os.path import join as pjoin
+from typing import Dict
 
 from qtask.config import config
 from qtask.schemas import TaskInfo, TaskStatus
+from qtask.schemas.Task import TaskId
 from qtask.schemas.executor import ExecutorStatus
 from qtask.utils import Observable
 
@@ -21,6 +23,8 @@ class Executor:
         os.makedirs(self.task_output_dir, exist_ok=True)
 
         self._status: ExecutorStatus = ExecutorStatus.IDLE
+
+        self._tasks: Dict[TaskId, TaskInfo] = {}
 
         self._task_done = Observable[TaskInfo]()
         self._task_failed = Observable[TaskInfo]()
@@ -56,6 +60,7 @@ class Executor:
             return task
 
         self._status = ExecutorStatus.BUSY
+        self._tasks[task.id] = task
 
         with open(output_file_path, 'w') as output_file:
             proc = await asyncio.create_subprocess_shell(
@@ -74,4 +79,9 @@ class Executor:
 
         self.task_done.fire(task)
 
+        del self._tasks[task.id]
+
         return task
+
+    def get_task(self, task_id: TaskId) -> TaskInfo | None:
+        return self._tasks.get(task_id)
