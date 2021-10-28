@@ -26,16 +26,11 @@ class Executor:
 
         self._tasks: Dict[TaskId, TaskInfo] = {}
 
-        self._task_done = Observable[TaskInfo]()
-        self._task_failed = Observable[TaskInfo]()
+        self._status_changed = Observable[TaskInfo]()
 
     @property
-    def task_done(self) -> Observable[TaskInfo]:
-        return self._task_done
-
-    @property
-    def task_failed(self) -> Observable[TaskInfo]:
-        return self._task_failed
+    def task_status_changed(self) -> Observable[TaskInfo]:
+        return self._status_changed
 
     @property
     def status(self) -> ExecutorStatus:
@@ -55,7 +50,7 @@ class Executor:
             task.status = TaskStatus.ERROR
             task.terminated_at = datetime.now()
 
-            self.task_failed.fire(task)
+            self._status_changed.fire(task)
 
             return task
 
@@ -77,7 +72,7 @@ class Executor:
         task.status = TaskStatus.COMPLETED
         task.terminated_at = datetime.now()
 
-        self.task_done.fire(task)
+        self._status_changed.fire(task)
 
         del self._tasks[task.id]
 

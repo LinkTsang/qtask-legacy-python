@@ -18,19 +18,15 @@ class ExecutorTestCase(unittest.TestCase):
 
         task_done_flag = False
 
-        def handle_task_done(task: TaskInfo):
+        def handle_task_status_changed(task: TaskInfo):
             nonlocal task_done_flag
             task_done_flag = True
 
             self.assertEqual(dummy_task.id, task.id)
             self.assertEqual(TaskStatus.COMPLETED, task.status)
 
-        def handle_task_failed(task: TaskInfo):
-            self.fail(msg='task failed %r' % task)
-
         executor = Executor()
-        executor.task_done.on(handle_task_done)
-        executor.task_failed.on(handle_task_failed)
+        executor._status_changed.on(handle_task_status_changed)
 
         self.assertFalse(task_done_flag)
 
