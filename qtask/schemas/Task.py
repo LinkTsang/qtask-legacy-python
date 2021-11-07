@@ -40,6 +40,7 @@ class TaskInfo(BaseModel):
     working_dir: str = ""
     command_line: str
     output_file_path: str = "task.log"
+    message: str = ""
 
     class Config:
         alias_generator = to_camel
