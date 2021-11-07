@@ -26,3 +26,4 @@ class Task(Base):
     working_dir = Column(String, nullable=False)
     command_line = Column(String, nullable=False)
     output_file_path = Column(String, nullable=False)
+    message = Column(String, nullable=False)
