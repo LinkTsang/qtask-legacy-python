@@ -193,11 +193,9 @@ class Scheduler:
         try:
             logger.debug('task scheduled: name=%r, status=%s, id=%r', task.name, task.status, task.id)
 
-            task = await self._agent.schedule_task(task)
-            if task:
+            async for task in self._agent.schedule_task(task):
                 self.store.update_task(task)
-
-            logger.debug('task done: name=%r, status=%s, id=%r', task.name, task.status, task.id)
+                logger.debug('task status updated: name=%r, status=%s, id=%r', task.name, task.status, task.id)
 
         except Exception:
             logger.exception('task control daemon uncaught exception')

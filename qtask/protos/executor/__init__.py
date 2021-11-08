@@ -21,6 +21,13 @@ class WatchResponse(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class RunTaskResponse(betterproto.Message):
+    id: str = betterproto.string_field(1)
+    status: str = betterproto.string_field(2)
+    message: str = betterproto.string_field(3)
+
+
+@dataclass(eq=False, repr=False)
 class Request(betterproto.Message):
     message: str = betterproto.string_field(1)
 
@@ -32,7 +39,7 @@ class Reply(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class TaskDetail(betterproto.Message):
-    task_id: str = betterproto.string_field(1)
+    id: str = betterproto.string_field(1)
     status: str = betterproto.string_field(2)
     created_at: datetime = betterproto.message_field(3)
     started_at: datetime = betterproto.message_field(4)
@@ -43,6 +50,7 @@ class TaskDetail(betterproto.Message):
     working_dir: str = betterproto.string_field(9)
     command_line: str = betterproto.string_field(10)
     output_file_path: str = betterproto.string_field(11)
+    message: str = betterproto.string_field(12)
 
 
 @dataclass(eq=False, repr=False)
@@ -84,7 +92,7 @@ class ExecutorStub(betterproto.ServiceStub):
     async def run_task(
             self,
             *,
-            task_id: str = "",
+            id: str = "",
             status: str = "",
             created_at: datetime = None,
             started_at: datetime = None,
@@ -95,10 +103,11 @@ class ExecutorStub(betterproto.ServiceStub):
             working_dir: str = "",
             command_line: str = "",
             output_file_path: str = "",
-    ) -> "TaskDetail":
+            message: str = "",
+    ) -> AsyncIterator["RunTaskResponse"]:
 
         request = TaskDetail()
-        request.task_id = task_id
+        request.id = id
         request.status = status
         if created_at is not None:
             request.created_at = created_at
@@ -113,10 +122,14 @@ class ExecutorStub(betterproto.ServiceStub):
         request.working_dir = working_dir
         request.command_line = command_line
         request.output_file_path = output_file_path
+        request.message = message
 
-        return await self._unary_unary(
-            "/executor.Executor/RunTask", request, TaskDetail
-        )
+        async for response in self._unary_stream(
+                "/executor.Executor/RunTask",
+                request,
+                RunTaskResponse,
+        ):
+            yield response
 
     async def get_task(self) -> "GetTaskReply":
 
@@ -136,7 +149,7 @@ class ExecutorBase(ServiceBase):
 
     async def run_task(
             self,
-            task_id: str,
+            id: str,
             status: str,
             created_at: datetime,
             started_at: datetime,
@@ -147,7 +160,8 @@ class ExecutorBase(ServiceBase):
             working_dir: str,
             command_line: str,
             output_file_path: str,
-    ) -> "TaskDetail":
+            message: str,
+    ) -> AsyncIterator["RunTaskResponse"]:
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)
 
     async def get_task(self) -> "GetTaskReply":
@@ -178,7 +192,7 @@ class ExecutorBase(ServiceBase):
         request = await stream.recv_message()
 
         request_kwargs = {
-            "task_id": request.task_id,
+            "id": request.id,
             "status": request.status,
             "created_at": request.created_at,
             "started_at": request.started_at,
@@ -189,10 +203,14 @@ class ExecutorBase(ServiceBase):
             "working_dir": request.working_dir,
             "command_line": request.command_line,
             "output_file_path": request.output_file_path,
+            "message": request.message,
         }
 
-        response = await self.run_task(**request_kwargs)
-        await stream.send_message(response)
+        await self._call_rpc_handler_server_stream(
+            self.run_task,
+            stream,
+            request_kwargs,
+        )
 
     async def __rpc_get_task(self, stream: grpclib.server.Stream) -> None:
         request = await stream.recv_message()
@@ -218,9 +236,9 @@ class ExecutorBase(ServiceBase):
             ),
             "/executor.Executor/RunTask": grpclib.const.Handler(
                 self.__rpc_run_task,
-                grpclib.const.Cardinality.UNARY_UNARY,
+                grpclib.const.Cardinality.UNARY_STREAM,
                 TaskDetail,
-                TaskDetail,
+                RunTaskResponse,
             ),
             "/executor.Executor/GetTask": grpclib.const.Handler(
                 self.__rpc_get_task,

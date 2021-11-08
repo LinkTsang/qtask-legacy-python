@@ -14,10 +14,16 @@ message WatchResponse {
   ExecutorStatus status = 1;
 }
 
+message RunTaskResponse {
+  string id = 1;
+  string status = 2;
+  string message = 3;
+}
+
 service Executor {
   rpc Echo (Request) returns (Reply) {}
   rpc Watch (google.protobuf.Empty) returns (stream WatchResponse) {}
-  rpc RunTask (TaskDetail) returns (TaskDetail) {}
+  rpc RunTask (TaskDetail) returns (stream RunTaskResponse) {}
   rpc GetTask (GetTaskRequest) returns (GetTaskReply) {}
 }
 
@@ -30,7 +36,7 @@ message Reply {
 }
 
 message TaskDetail {
-  string task_id = 1;
+  string id = 1;
 
   string status = 2;
 
@@ -45,6 +51,7 @@ message TaskDetail {
   string working_dir = 9;
   string command_line = 10;
   string output_file_path = 11;
+  string message = 12;
 }
 
 message GetTaskRequest {

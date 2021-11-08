@@ -48,6 +48,7 @@ class Executor:
             logger.error('task %r@%s failed', task.name, task.id)
 
             task.status = TaskStatus.ERROR
+            task.message = 'task status is not READY'
             task.terminated_at = datetime.now()
 
             self._status_changed.fire(task)
@@ -55,7 +56,6 @@ class Executor:
             return task
 
         self._status = ExecutorStatus.BUSY
-        self._tasks[task.id] = task
 
         with open(output_file_path, 'w') as output_file:
             proc = await asyncio.create_subprocess_shell(
@@ -74,9 +74,4 @@ class Executor:
 
         self._status_changed.fire(task)
 
-        del self._tasks[task.id]
-
         return task
-
-    def get_task(self, task_id: TaskId) -> TaskInfo | None:
-        return self._tasks.get(task_id)

@@ -16,9 +16,9 @@ from qtask.protos.executor import (
     GetTaskReply,
     Reply,
     ExecutorInfo,
-    TaskDetail,
     WatchResponse,
-    ExecutorStatus
+    ExecutorStatus,
+    RunTaskResponse
 )
 from qtask.schemas import TaskInfo
 from qtask.utils import setup_logger
@@ -55,7 +55,7 @@ class ExecutorService(ExecutorBase):
 
     async def run_task(
             self,
-            task_id: str,
+            id: str,
             status: str,
             created_at: datetime,
             started_at: datetime,
@@ -66,11 +66,12 @@ class ExecutorService(ExecutorBase):
             working_dir: str,
             command_line: str,
             output_file_path: str,
-    ) -> TaskDetail:
+            message: str,
+    ) -> AsyncIterator[RunTaskResponse]:
         await self._update_status(ExecutorStatus.BUSY)
 
-        task_info = await self.executor.run_task(TaskInfo(
-            id=task_id,
+        task_info = TaskInfo(
+            id=id,
             status=status,
             created_at=created_at,
             started_at=started_at,
@@ -81,11 +82,14 @@ class ExecutorService(ExecutorBase):
             working_dir=working_dir,
             command_line=command_line,
             output_file_path=output_file_path,
-        ))
+        )
+
+        # TODO: watch more task status
+        task_info = await self.executor.run_task(task_info)
+
+        yield RunTaskResponse(id=id, status=task_info.status, message=task_info.message)
 
         await self._update_status(ExecutorStatus.IDLE)
-
-        return TaskDetail(**task_info.dict())
 
     async def get_task(self) -> GetTaskReply:
         raise grpclib.GRPCError(grpclib.const.Status.UNIMPLEMENTED)

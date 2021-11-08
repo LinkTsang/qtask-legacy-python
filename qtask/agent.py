@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import Optional, Dict, Set, AsyncIterator
 
-from betterproto import Casing, Enum
+from betterproto import Enum
 from grpclib.client import Channel
 from kazoo.client import KazooClient
 from kazoo.protocol.states import KazooState, ZnodeStat, WatchedEvent, EventType
@@ -56,9 +56,12 @@ class ExecutorNode:
         self.status = ExecutorNodeStatus.TERMINATED
         yield self.status
 
-    async def schedule_task(self, task: TaskInfo) -> TaskInfo:
-        response = await self.stub.run_task(**task.dict())
-        return TaskInfo(**response.to_dict(casing=Casing.SNAKE))
+    async def schedule_task(self, task: TaskInfo) -> AsyncIterator[TaskInfo]:
+        async for response in self.stub.run_task(**task.dict()):
+            assert task.id == response.id
+            task.status = response.status
+            task.message = response.message
+            yield task
 
     def update_info(self, info: ExecutorInfo):
         if self.host != info.host or self.port != info.port:
@@ -194,12 +197,12 @@ class TaskAgent:
                 return node
         return None
 
-    async def schedule_task(self, task: TaskInfo) -> TaskInfo:
+    async def schedule_task(self, task: TaskInfo) -> AsyncIterator[TaskInfo]:
         executor_node = self._acquire_idle_executor_node()
         if not executor_node:
             raise RuntimeError('Not available executor nodes!')
-        task = await executor_node.schedule_task(task)
-        return task
+        async for task in executor_node.schedule_task(task):
+            yield task
 
     async def get_task_status(self, task_id: TaskId):
         raise NotImplementedError('Method not implemented!')
