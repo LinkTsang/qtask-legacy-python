@@ -1,8 +1,11 @@
 ![ci_test workflow](https://github.com/linktsang/qtask/actions/workflows/ci_test.yml/badge.svg)
 
+# PLEASE NOTE, THIS PROJECT IS NO LONGER BEING MAINTAINED
+See also: new [QTask](https://github.com/LinkTsang/qtask) written in Golang.
+
 # 🚧 QTask
 
-QTask: [WIP] A simple task scheduler inspired by Slurm and task-spooler.
+QTask: [DEPRECATED] A simple task scheduler inspired by Slurm and task-spooler.
 
 * QTask Manager for Web [QTask Web App](https://github.com/LinkTsang/qtask-web-app)
 
